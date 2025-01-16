@@ -59,6 +59,9 @@ export class SMS {
   // misc metadata for debugging
   @Prop({ type: Object })
   metadata: Record<string, any>
+
+  @Prop({ type: Boolean })
+  read: Boolean
 }
 
 export const SMSSchema = SchemaFactory.createForClass(SMS)

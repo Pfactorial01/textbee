@@ -1,4 +1,6 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common'
+import { HttpService } from '@nestjs/axios'
+import { SocksProxyAgent } from 'socks-proxy-agent'
 import { InjectModel } from '@nestjs/mongoose'
 import { Device, DeviceDocument } from './schemas/device.schema'
 import { Model } from 'mongoose'
@@ -343,7 +345,7 @@ export class GatewayService {
         console.log(e)
       }
     }
-    
+
     const successCount = fcmResponses.reduce(
       (acc, m) => acc + m.successCount,
       0,
@@ -399,6 +401,7 @@ export class GatewayService {
       type: SMSType.RECEIVED,
       sender: dto.sender,
       receivedAt,
+      read: false,
     })
 
     this.deviceModel
@@ -482,5 +485,100 @@ export class GatewayService {
         recipients.length - 2
       } others`
     }
+  }
+  async getConfig() {
+    const username = process.env.PROXY_USERNAME
+    const password = process.env.PROXY_PASSWORD
+    return {
+      username,
+      password,
+    }
+  }
+  async receivePing() {
+    Logger.log('Proxy alive and receiving requests')
+    return
+  }
+  async scrapeWebsiteThroughDevice(input) {
+    const { deviceIp, url } = input
+    if (!url) {
+      throw new HttpException('Website URL is required', HttpStatus.BAD_REQUEST)
+    }
+    if (!deviceIp) {
+      throw new HttpException('DeviceIp is required', HttpStatus.BAD_REQUEST)
+    }
+    const username = process.env.PROXY_USERNAME
+    const password = process.env.PROXY_PASSWORD
+    const proxyUrl = `socks5://${username}:${password}@${deviceIp}:3000`
+    const proxyAgent = new SocksProxyAgent(proxyUrl)
+
+    const httpService = new HttpService()
+
+    const res = await httpService.axiosRef({
+      method: 'GET',
+      url,
+      httpAgent: proxyAgent,
+      httpsAgent: proxyAgent, // for HTTPS requests if needed
+    })
+    return res.data
+  }
+  async getChatWithNumber(deviceId, number) {
+    const sms = await this.smsModel.create({
+      device: deviceId,
+      message: 'new mesage 2',
+      type: SMSType.RECEIVED,
+      sender: number,
+      receivedAt: '2025-01-11T18:55:32.000Z',
+      read: false,
+    })
+    console.log(sms)
+
+    const device = await this.deviceModel.findById(deviceId)
+
+    if (!device) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device does not exist',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+
+    // @ts-ignore
+    const receivedMesages = await this.smsModel
+      .find(
+        {
+          device: device._id,
+          type: SMSType.RECEIVED,
+          sender: number,
+        },
+        null,
+        { sort: { receivedAt: -1 }, limit: 200 },
+      )
+      .populate({
+        path: 'device',
+        select: '_id brand model buildId enabled',
+      })
+    const sentMessages = await this.smsModel.find(
+      {
+        device: device._id,
+        type: SMSType.SENT,
+        recipient: number,
+      },
+      null,
+      { sort: { sentAt: -1 }, limit: 200 },
+    )
+    const result = await this.smsModel.updateMany(
+      {
+        device: device._id,
+        type: SMSType.RECEIVED,
+        read: false,
+      },
+      {
+        read: true,
+      },
+    )
+    return [...receivedMesages, ...sentMessages]
+    // return []
   }
 }

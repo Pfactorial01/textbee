@@ -100,7 +100,6 @@ export class GatewayController {
     return { data }
   }
 
-
   @ApiOperation({ summary: 'Received SMS from a device' })
   @HttpCode(HttpStatus.OK)
   // deprecate receiveSMS route in favor of receive-sms
@@ -120,6 +119,39 @@ export class GatewayController {
     @Param('id') deviceId: string,
   ): Promise<RetrieveSMSResponseDTO> {
     const data = await this.gatewayService.getReceivedSMS(deviceId)
+    return { data }
+  }
+  @ApiOperation({ summary: 'Get proxy config' })
+  @Get('/get-config')
+  async getConfig(@Request() req) {
+    const data = await this.gatewayService.getConfig()
+    return { data }
+  }
+
+  @ApiOperation({ summary: 'Receive ping' })
+  @Get('/ping-server')
+  async receivePing(@Request() req) {
+    await this.gatewayService.receivePing()
+    return { message: 'ping received' }
+  }
+
+  @ApiOperation({ summary: 'Scrape website through device' })
+  @Post('/scrape')
+  async scrapeWithDevice(@Body() input, @Request() req) {
+    const data = await this.gatewayService.scrapeWebsiteThroughDevice(input)
+    return { data }
+  }
+
+  @ApiOperation({ summary: 'Get chat with specific number' })
+  @ApiResponse({ status: 200 })
+  @Get(['/devices/:id/:number/getChat'])
+  async getChatWithNumber(
+    @Param('id') deviceId: string,
+    @Param('number') number: string,
+  ) {
+    console.log('heree')
+
+    const data = await this.gatewayService.getChatWithNumber(deviceId, number)
     return { data }
   }
 }

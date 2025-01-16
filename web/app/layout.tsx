@@ -78,17 +78,17 @@ const trackPageView = async ({
 
   const referer = headerList.get('referer')
 
-  const res = await prismaClient.pageView.create({
-    data: {
-      url,
-      // @ts-ignore
-      user: session?.user?.id,
-      userAgent: ua,
-      ip,
-      referer,
-    },
-  })
-  return res
+  // const res = await prismaClient.pageView.create({
+  //   data: {
+  //     url,
+  //     // @ts-ignore
+  //     user: session?.user?.id,
+  //     userAgent: ua,
+  //     ip,
+  //     referer,
+  //   },
+  // })
+  return []
 }
 
 export default async function RootLayout({ children }: PropsWithChildren) {
