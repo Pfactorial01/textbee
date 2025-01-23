@@ -1,0 +1,327 @@
+{% extends "base.html" %} {% block content %}
+<!-- Stats Cards Row -->
+<div class="row mb-4">
+	<div class="col-md-6">
+		<div class="card bg-primary text-white">
+			<div class="card-body">
+				<h6 class="card-title">Total Messages Sent</h6>
+				<h2 class="card-text">
+					<i class="bi bi-send me-2"></i>
+					<span id="totalSent">--</span>
+				</h2>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-6">
+		<div class="card bg-success text-white">
+			<div class="card-body">
+				<h6 class="card-title">Total Messages Received</h6>
+				<h2 class="card-text">
+					<i class="bi bi-envelope me-2"></i>
+					<span id="totalReceived">--</span>
+				</h2>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Add this after the stats cards and before the Current Device Info section -->
+<div class="row mb-4">
+	<div class="col-12">
+		<div class="card">
+			<div
+				class="card-header d-flex justify-content-between align-items-center"
+			>
+				<h5 class="mb-0">Unread Messages</h5>
+				<a href="/chat" class="btn btn-sm btn-outline-primary">
+					<i class="bi bi-chat"></i> View All
+				</a>
+			</div>
+			<div class="card-body p-0">
+				<div id="unreadMessagesList">
+					<div
+						class="d-flex justify-content-center p-3"
+						id="unreadLoading"
+					>
+						<div class="spinner-border text-primary" role="status">
+							<span class="visually-hidden"
+								>Loading messages...</span
+							>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="row mb-4">
+	<!-- API Key Management -->
+	<div class="col-md-12">
+		<div class="card">
+			<div
+				class="card-header d-flex justify-content-between align-items-center"
+			>
+				<h5 class="mb-0">API Keys</h5>
+				<button class="btn btn-sm btn-primary" id="generateApiKey">
+					<i class="bi bi-plus-circle"></i> Generate New Key
+				</button>
+			</div>
+			<div class="card-body">
+				<div class="table-responsive">
+					<table class="table table-hover" id="apiKeysTable">
+						<thead>
+							<tr>
+								<th>Key Name</th>
+								<th>Created</th>
+								<th>Usage Count</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr class="placeholder-glow">
+								<td><span class="placeholder col-6"></span></td>
+								<td><span class="placeholder col-4"></span></td>
+								<td><span class="placeholder col-2"></span></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Add this JavaScript at the end of the page -->
+<script>
+	document.addEventListener("DOMContentLoaded", async function () {
+		// Add this function to fetch device stats
+		async function fetchDeviceStats() {
+			const deviceId = localStorage.getItem("selectedDeviceId");
+			if (!deviceId) {
+				document.getElementById("totalSent").textContent = "--";
+				document.getElementById("totalReceived").textContent = "--";
+				return;
+			}
+
+			try {
+				const response = await fetch(
+					`http://127.0.0.1:3005/api/v1/gateway/devices/${deviceId}/getDeviceStats`,
+					{
+						headers: {
+							Authorization: `Bearer ${
+								document.cookie
+									.split("; ")
+									.find((row) =>
+										row.startsWith("client_access_token=")
+									)
+									?.split("=")[1]
+							}`,
+						},
+					}
+				);
+
+				if (!response.ok)
+					throw new Error("Failed to fetch device stats");
+
+				const { data } = await response.json();
+
+				// Update stats cards
+				document.getElementById("totalSent").textContent =
+					data.sentSMSCount.toLocaleString();
+				document.getElementById("totalReceived").textContent =
+					data.receivedSMSCount.toLocaleString();
+			} catch (error) {
+				console.error("Error fetching device stats:", error);
+				document.getElementById("totalSent").textContent = "Error";
+				document.getElementById("totalReceived").textContent = "Error";
+			}
+		}
+
+		// Initial stats fetch
+		await fetchDeviceStats();
+
+		// Refresh stats every 30 seconds along with messages
+		setInterval(fetchDeviceStats, 30000);
+
+		// Fetch unread messages from contacts
+		async function fetchUnreadMessages() {
+			const deviceId = localStorage.getItem("selectedDeviceId");
+			if (!deviceId) {
+				unreadMessagesList.innerHTML =
+					'<div class="p-3 text-muted">Please select a device first</div>';
+				return;
+			}
+
+			try {
+				const response = await fetch(
+					`http://127.0.0.1:3005/api/v1/gateway/devices/${deviceId}/getContacts`,
+					{
+						headers: {
+							Authorization: `Bearer ${
+								document.cookie
+									.split("; ")
+									.find((row) =>
+										row.startsWith("client_access_token=")
+									)
+									?.split("=")[1]
+							}`,
+						},
+					}
+				);
+
+				if (!response.ok) throw new Error("Failed to fetch contacts");
+
+				const data = await response.json();
+				const contacts = data.data.filter(
+					(contact) => contact.read === false
+				);
+
+				if (contacts.length === 0) {
+					unreadMessagesList.innerHTML =
+						'<div class="p-3 text-muted">No unread messages</div>';
+					return;
+				}
+
+				const listGroup = document.createElement("div");
+				listGroup.className = "list-group list-group-flush";
+
+				contacts.forEach((contact) => {
+					const item = document.createElement("div");
+					item.className = "list-group-item";
+
+					const timestamp = new Date(
+						contact.lastMessageCreatedAt
+					).toLocaleString([], {
+						hour: "2-digit",
+						minute: "2-digit",
+						year: "2-digit",
+						month: "2-digit",
+						day: "2-digit",
+					});
+
+					item.innerHTML = `
+						<div class="d-flex w-100 justify-content-between align-items-center">
+							<div class="min-width-0">
+								<h6 class="mb-0 text-truncate">
+									${contact._id}
+									<span class="badge bg-primary ms-2">New</span>
+								</h6>
+								<p class="mb-0 text-truncate text-muted small">
+									${
+										contact.lastMessageType === "SENT"
+											? '<i class="bi bi-arrow-right-short"></i>'
+											: '<i class="bi bi-arrow-left-short"></i>'
+									}
+									${contact.lastMessage || "No messages"}
+								</p>
+							</div>
+							<small class="text-muted ms-3">${timestamp}</small>
+						</div>
+					`;
+
+					item.addEventListener("click", () => {
+						window.location.href = `/chat?contact=${contact._id}`;
+					});
+
+					listGroup.appendChild(item);
+				});
+
+				unreadMessagesList.innerHTML = "";
+				unreadMessagesList.appendChild(listGroup);
+			} catch (error) {
+				console.error("Error fetching unread messages:", error);
+				unreadMessagesList.innerHTML = `
+					<div class="alert alert-danger m-3" role="alert">
+						Failed to load messages: ${error.message}
+					</div>
+				`;
+			}
+		}
+
+		// Initial fetch
+		await fetchUnreadMessages();
+
+		// Refresh every 30 seconds
+		setInterval(fetchUnreadMessages, 30000);
+
+		// Function to fetch existing API keys
+		async function fetchApiKeys() {
+			try {
+				const response = await fetch(
+					`http://127.0.0.1:3005/api/v1/auth/api-keys`,
+					{
+						headers: {
+							Authorization: `Bearer ${
+								document.cookie
+									.split("; ")
+									.find((row) =>
+										row.startsWith("client_access_token=")
+									)
+									?.split("=")[1]
+							}`,
+						},
+					}
+				);
+
+				if (!response.ok) throw new Error("Failed to fetch API keys");
+
+				const { data } = await response.json();
+				const apiKeysTableBody = document
+					.getElementById("apiKeysTable")
+					.querySelector("tbody");
+				apiKeysTableBody.innerHTML = ""; // Clear existing keys
+
+				data.forEach((key) => {
+					const row = document.createElement("tr");
+					row.innerHTML = `
+						<td>${key.apiKey}</td>
+						<td>${new Date(key.createdAt).toLocaleString()}</td>
+						<td>${key.usageCount}</td>
+					`;
+					apiKeysTableBody.appendChild(row);
+				});
+			} catch (error) {
+				console.error("Error fetching API keys:", error);
+			}
+		}
+
+		// Function to generate a new API key
+		async function generateApiKey() {
+			try {
+				const response = await fetch(
+					`http://127.0.0.1:3005/api/v1/auth/api-keys`,
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${
+								document.cookie
+									.split("; ")
+									.find((row) =>
+										row.startsWith("client_access_token=")
+									)
+									?.split("=")[1]
+							}`,
+						},
+					}
+				);
+
+				if (!response.ok) throw new Error("Failed to generate API key");
+
+				const { data } = await response.json();
+				fetchApiKeys(); // Refresh the API keys list
+			} catch (error) {
+				console.error("Error generating API key:", error);
+			}
+		}
+
+		// Event listener for the generate API key button
+		document
+			.getElementById("generateApiKey")
+			.addEventListener("click", generateApiKey);
+
+		// Initial fetch of existing API keys
+		await fetchApiKeys();
+	});
+</script>
+{% endblock %}

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>{{ title }} - SMS Portal</title>
+		<link
+			href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+			rel="stylesheet"
+		/>
+		<link
+			href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css"
+			rel="stylesheet"
+		/>
+		<link
+			href="{{ url_for('static', path='/css/style.css') }}"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+			<div class="container-fluid">
+				<a class="navbar-brand" href="/">SMS Portal</a>
+				<button
+					class="navbar-toggler"
+					type="button"
+					data-bs-toggle="collapse"
+					data-bs-target="#navbarNav"
+				>
+					<span class="navbar-toggler-icon"></span>
+				</button>
+				<div class="collapse navbar-collapse" id="navbarNav">
+					<ul class="navbar-nav ms-auto">
+						{% if user %}
+						<li class="nav-item">
+							<span class="nav-link"
+								>Welcome, {{ user.username }}</span
+							>
+						</li>
+						<li class="nav-item">
+							<a class="nav-link" href="/logout">Logout</a>
+						</li>
+						{% endif %}
+					</ul>
+				</div>
+			</div>
+		</nav>
+
+		<div class="container-fluid">
+			<div class="row">
+				{% if user %}
+				<div class="col-md-3 col-lg-2 px-0 bg-light sidebar">
+					<div class="position-sticky pt-3">
+						<div class="mb-3 px-3">
+							<label for="deviceSelect" class="form-label"
+								>Select Device</label
+							>
+							<div class="dropdown">
+								<button
+									class="btn btn-secondary dropdown-toggle"
+									type="button"
+									id="deviceDropdown"
+									data-bs-toggle="dropdown"
+									aria-expanded="false"
+								>
+									Choose device...
+								</button>
+								<ul
+									class="dropdown-menu"
+									aria-labelledby="deviceDropdown"
+								>
+									<li>
+										<input
+											type="text"
+											class="form-control"
+											id="deviceSearchInput"
+											placeholder="Search devices..."
+											aria-label="Search devices"
+											onkeyup="filterDevices()"
+										/>
+									</li>
+									<li>
+										<hr class="dropdown-divider" />
+									</li>
+									<div id="deviceList"></div>
+								</ul>
+							</div>
+						</div>
+						<ul class="nav flex-column">
+							<li class="nav-item">
+								<a
+									class="nav-link {% if request.url.path == '/' %}active{% endif %}"
+									href="/"
+								>
+									<i class="bi bi-chat-dots me-2"></i>
+									Home
+								</a>
+							</li>
+							<li class="nav-item">
+								<a
+									class="nav-link {% if request.url.path == '/chat' %}active{% endif %}"
+									href="/chat"
+								>
+									<i class="bi bi-chat-dots me-2"></i>
+									Chat/Text
+								</a>
+							</li>
+							<li class="nav-item">
+								<a
+									class="nav-link {% if request.url.path == '/scraper' %}active{% endif %}"
+									href="/scraper"
+								>
+									<i class="bi bi-search me-2"></i>
+									Web Scraper
+								</a>
+							</li>
+							<li class="nav-item">
+								<a
+									class="nav-link {% if request.url.path == '/proxy' %}active{% endif %}"
+									href="/proxy"
+								>
+									<i class="bi bi-hdd-network me-2"></i>
+									Proxy Server
+								</a>
+							</li>
+							<li class="nav-item">
+								<a
+									class="nav-link {% if request.url.path == '/settings' %}active{% endif %}"
+									href="/settings"
+								>
+									<i class="bi bi-phone me-2"></i>
+									Phone Settings
+								</a>
+							</li>
+							<li class="nav-item">
+								<a
+									class="nav-link {% if request.url.path == '/logs' %}active{% endif %}"
+									href="/logs"
+								>
+									<i class="bi bi-shield-check me-2"></i>
+									Audit
+								</a>
+							</li>
+						</ul>
+					</div>
+				</div>
+				{% endif %}
+				<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+					<div class="container-fluid py-4">
+						{% block content %}{% endblock %}
+					</div>
+				</main>
+			</div>
+		</div>
+
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+		<script src="{{ url_for('static', path='/js/main.js') }}"></script>
+		<script>
+			async function fetchDevices() {
+				try {
+					const response = await fetch(
+						"http://127.0.0.1:3005/api/v1/gateway/devices",
+						{
+							method: "GET",
+							headers: {
+								"Content-Type": "application/json",
+								Authorization: `Bearer ${
+									document.cookie
+										.split("; ")
+										.find((row) =>
+											row.startsWith(
+												"client_access_token="
+											)
+										)
+										?.split("=")[1]
+								}`,
+							},
+						}
+					);
+					if (!response.ok) {
+						throw new Error("Network response was not ok");
+					}
+					const devices = await response.json();
+					return devices.data; // Assuming the devices are in the 'data' field
+				} catch (error) {
+					console.error("Error fetching devices:", error);
+					return [];
+				}
+			}
+
+			function populateDeviceDropdown(devices) {
+				const deviceList = document.getElementById("deviceList");
+				deviceList.innerHTML = ""; // Clear existing items
+
+				devices.forEach((device) => {
+					const listItem = document.createElement("li");
+					listItem.innerHTML = `<a class="dropdown-item" href="#" data-value="${device._id}">${device.name}</a>`;
+					deviceList.appendChild(listItem);
+				});
+			}
+
+			function filterDevices() {
+				const input = document.getElementById("deviceSearchInput");
+				const filter = input.value.toLowerCase();
+				const dropdownItems =
+					document.querySelectorAll(".dropdown-item");
+
+				dropdownItems.forEach((item) => {
+					const text = item.textContent.toLowerCase();
+					item.style.display = text.includes(filter) ? "" : "none";
+				});
+			}
+
+			// Handle selection of device
+			document.addEventListener("click", function (event) {
+				if (event.target.classList.contains("dropdown-item")) {
+					event.preventDefault(); // Prevent the default anchor behavior
+					const selectedValue =
+						event.target.getAttribute("data-value");
+					const selectedText = event.target.textContent; // Get the selected device name
+					const deviceDropdown =
+						document.getElementById("deviceDropdown");
+					deviceDropdown.textContent = selectedText; // Update button text
+					deviceDropdown.setAttribute("data-value", selectedValue); // Store selected value
+
+					// Update localStorage with the selected device ID
+					localStorage.setItem("selectedDeviceId", selectedValue);
+
+					// Reload the page
+					location.reload();
+				}
+			});
+
+			// Populate the dropdown if selectedDeviceId exists
+			document.addEventListener("DOMContentLoaded", async function () {
+				const selectedDeviceId =
+					localStorage.getItem("selectedDeviceId");
+				const deviceDropdown =
+					document.getElementById("deviceDropdown");
+
+				// Fetch devices from the endpoint
+				const devices = await fetchDevices();
+				populateDeviceDropdown(devices);
+
+				// Check if selectedDeviceId exists and update the dropdown button text
+				if (selectedDeviceId) {
+					const selectedDevice = devices.find(
+						(device) => device._id === selectedDeviceId
+					);
+					if (selectedDevice) {
+						deviceDropdown.textContent = selectedDevice.name; // Set button text to selected device name
+						deviceDropdown.setAttribute(
+							"data-value",
+							selectedDeviceId
+						); // Store selected value
+					}
+				} else {
+					if (devices.length > 0) {
+						localStorage.setItem(
+							"selectedDeviceId",
+							devices[0]._id
+						);
+						deviceDropdown.textContent = devices[0].name; // Set button text to selected device name
+						deviceDropdown.setAttribute(
+							"data-value",
+							devices[0]._id
+						); // Store selected value
+						window.location.reload();
+					} else {
+						deviceDropdown.textContent = "Choose device..."; // Default text if no device is selected
+					}
+				}
+			});
+		</script>
+	</body>
+</html>

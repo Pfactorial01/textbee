@@ -1,0 +1,352 @@
+{% extends "base.html" %} {% block content %}
+<div class="container">
+	<div class="row">
+		<div class="col-12">
+			<div class="card mb-4">
+				<div
+					class="card-header d-flex justify-content-between align-items-center"
+				>
+					<h5 class="mb-0">Web Scraper</h5>
+					<button
+						class="btn btn-outline-secondary btn-sm"
+						id="clearButton"
+						type="button"
+					>
+						<i class="bi bi-trash"></i> Clear Results
+					</button>
+				</div>
+				<div class="card-body">
+					<form id="scraperForm" class="mb-4">
+						<div class="input-group">
+							<input
+								type="url"
+								class="form-control"
+								id="urlInput"
+								placeholder="Enter website URL (e.g., https://www.example.com)"
+								required
+							/>
+							<button class="btn btn-primary" type="submit">
+								<i class="bi bi-search"></i> Scrape
+							</button>
+						</div>
+					</form>
+
+					<!-- Loading Spinner -->
+					<div id="loadingSpinner" class="text-center my-4 d-none">
+						<div class="spinner-border text-primary" role="status">
+							<span class="visually-hidden"
+								>Scraping website...</span
+							>
+						</div>
+						<p class="mt-2">Scraping website...</p>
+					</div>
+
+					<!-- Error Alert -->
+					<div
+						id="errorAlert"
+						class="alert alert-danger d-none"
+						role="alert"
+					></div>
+
+					<!-- Results Section -->
+					<div id="resultsSection" class="d-none">
+						<div
+							class="d-flex justify-content-between align-items-center mb-3"
+						>
+							<h6 class="mb-0">Scraped Content</h6>
+							<div class="btn-group">
+								<button
+									class="btn btn-outline-primary btn-sm active"
+									id="renderViewBtn"
+									type="button"
+								>
+									<i class="bi bi-window"></i> Rendered View
+								</button>
+								<button
+									class="btn btn-outline-primary btn-sm"
+									id="sourceViewBtn"
+									type="button"
+								>
+									<i class="bi bi-code-slash"></i> Source Code
+								</button>
+								<button
+									class="btn btn-outline-primary btn-sm"
+									id="copyButton"
+									type="button"
+								>
+									<i class="bi bi-clipboard"></i> Copy HTML
+								</button>
+							</div>
+						</div>
+
+						<!-- Rendered View -->
+						<div id="renderedView" class="border rounded bg-white">
+							<div class="preview-container">
+								<div id="shadowHost"></div>
+							</div>
+						</div>
+
+						<!-- Source View -->
+						<div
+							id="sourceView"
+							class="border rounded p-3 bg-light d-none"
+						>
+							<pre
+								id="resultContent"
+								class="mb-0"
+								style="white-space: pre-wrap"
+							></pre>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Add this before the main script -->
+<script id="iframeTemplate" type="text/template">
+<!DOCTYPE html>
+<html>
+<head>
+    <base href="{{baseUrl}}">
+    <style>
+        body { margin: 0; padding: 0; }
+        a { cursor: pointer; }
+        img { max-width: 100%; height: auto; }
+    </style>
+</head>
+<body>
+    {{content}}
+    <script>
+        document.addEventListener("click", function(e) {
+            const link = e.target.closest("a");
+            if (link) {
+                e.preventDefault();
+                const href = link.getAttribute("href");
+                window.parent.postMessage({
+                    type: "linkClicked",
+                    url: href
+                }, "*");
+            }
+        });
+
+        // Fix relative URLs for images and stylesheets
+        document.querySelectorAll('img[src], link[href], script[src]').forEach(el => {
+            const urlAttr = el.hasAttribute('src') ? 'src' : 'href';
+            const url = el.getAttribute(urlAttr);
+            try {
+                const absoluteUrl = new URL(url, document.baseURI).href;
+                el.setAttribute(urlAttr, absoluteUrl);
+            } catch(e) {}
+        });
+
+        // Add target="_parent" to all forms
+        document.querySelectorAll('form').forEach(form => {
+            form.setAttribute('target', '_parent');
+        });
+    </script>
+</body>
+</html>
+</script>
+
+<script>
+	function buildIframeHtml(baseUrl, content) {
+		const template = document.getElementById('iframeTemplate').innerHTML;
+		return template
+			.replace('{{baseUrl}}', baseUrl)
+			.replace('{{content}}', content);
+	}
+
+	document.addEventListener("DOMContentLoaded", function () {
+		const form = document.getElementById("scraperForm");
+		const urlInput = document.getElementById("urlInput");
+		const loadingSpinner = document.getElementById("loadingSpinner");
+		const errorAlert = document.getElementById("errorAlert");
+		const resultsSection = document.getElementById("resultsSection");
+		const resultContent = document.getElementById("resultContent");
+		const clearButton = document.getElementById("clearButton");
+		const copyButton = document.getElementById("copyButton");
+		const renderViewBtn = document.getElementById("renderViewBtn");
+		const sourceViewBtn = document.getElementById("sourceViewBtn");
+		const renderedView = document.getElementById("renderedView");
+		const sourceView = document.getElementById("sourceView");
+		const previewContent = document.getElementById("previewContent");
+
+		// Listen for messages from iframe (moved outside)
+		window.addEventListener("message", async function (event) {
+			if (event.data.type === "linkClicked") {
+				const newUrl = event.data.url;
+				urlInput.value = newUrl;
+				// Trigger form submission
+				form.dispatchEvent(new Event("submit"));
+			}
+		});
+
+		// Handle view toggles (moved outside)
+		renderViewBtn.addEventListener("click", function () {
+			renderViewBtn.classList.add("active");
+			sourceViewBtn.classList.remove("active");
+			renderedView.classList.remove("d-none");
+			sourceView.classList.add("d-none");
+		});
+
+		sourceViewBtn.addEventListener("click", function () {
+			sourceViewBtn.classList.add("active");
+			renderViewBtn.classList.remove("active");
+			sourceView.classList.remove("d-none");
+			renderedView.classList.add("d-none");
+		});
+
+		// Form submission handler
+		form.addEventListener("submit", async function (e) {
+			e.preventDefault();
+			
+			// Reset UI state
+			errorAlert.classList.add("d-none");
+			resultsSection.classList.add("d-none");
+			loadingSpinner.classList.remove("d-none");
+
+			try {
+				const deviceId = localStorage.getItem("selectedDeviceId");
+				const response = await fetch(
+					"http://127.0.0.1:3005/api/v1/gateway/scrape",
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${
+								document.cookie
+									.split("; ")
+									.find((row) =>
+										row.startsWith("client_access_token=")
+									)
+									?.split("=")[1]
+							}`,
+						},
+						body: JSON.stringify({
+							url: urlInput.value,
+							deviceId: deviceId,
+						}),
+					}
+				);
+
+				if (!response.ok) {
+					throw new Error("Failed to scrape website");
+				}
+
+				const data = await response.json();
+				const htmlContent = data.data;
+
+				// Update source view
+				resultContent.textContent = htmlContent;
+
+				// Update rendered view
+				const shadowHost = document.getElementById('shadowHost');
+				// Create shadow root if it doesn't exist
+				if (!shadowHost.shadowRoot) {
+					shadowHost.attachShadow({ mode: 'open' });
+				}
+
+				// Set content with isolated styles
+				shadowHost.shadowRoot.innerHTML = `
+					<style>
+						:host {
+							display: block;
+							font-family: system-ui, -apple-system, sans-serif;
+							line-height: 1.5;
+							color: #333;
+						}
+						* {
+							max-width: 100%;
+							box-sizing: border-box;
+						}
+						img {
+							max-width: 100%;
+							height: auto;
+						}
+						a {
+							color: #0d6efd;
+							text-decoration: underline;
+							cursor: pointer;
+						}
+						a:hover {
+							color: #0a58ca;
+						}
+					</style>
+					<div class="content">
+						${htmlContent}
+					</div>
+				`;
+
+				// Update the link click handler
+				shadowHost.shadowRoot.addEventListener('click', async function(e) {
+					const link = e.target.closest('a');
+					if (link) {
+						e.preventDefault();
+						e.stopPropagation();
+						
+						// Show loading state
+						loadingSpinner.classList.remove('d-none');
+						
+						try {
+							let href = link.getAttribute('href');
+							
+							// Get the origin from the URL input
+							const inputUrl = urlInput.value;
+							const inputOrigin = new URL(inputUrl).origin; // Extract the origin from the input URL
+							
+							// Check if the link is relative
+							if (!href.startsWith('http://') && !href.startsWith('https://')) {
+								href = new URL(href, inputOrigin).href; // Create absolute URL using the input origin
+							}
+
+							urlInput.value = href;
+							form.dispatchEvent(new Event('submit'));
+						} catch (error) {
+							console.error('Error following link:', error);
+							errorAlert.textContent = error.message;
+							errorAlert.classList.remove('d-none');
+						} finally {
+							loadingSpinner.classList.add('d-none');
+						}
+					}
+				});
+
+				// Show results section
+				resultsSection.classList.remove("d-none");
+				
+			} catch (error) {
+				console.error("Error:", error);
+				errorAlert.textContent = error.message;
+				errorAlert.classList.remove("d-none");
+			} finally {
+				loadingSpinner.classList.add("d-none");
+			}
+		});
+
+		// Handle clear button
+		clearButton.addEventListener("click", function () {
+			urlInput.value = "";
+			errorAlert.classList.add("d-none");
+			resultsSection.classList.add("d-none");
+			document.getElementById("previewContent").innerHTML = "";
+			resultContent.textContent = "";
+		});
+
+		// Handle copy button
+		copyButton.addEventListener("click", async function () {
+			try {
+				await navigator.clipboard.writeText(resultContent.textContent);
+				const originalText = this.innerHTML;
+				this.innerHTML = '<i class="bi bi-check"></i> Copied!';
+				setTimeout(() => {
+					this.innerHTML = originalText;
+				}, 2000);
+			} catch (err) {
+				console.error("Failed to copy:", err);
+			}
+		});
+	});
+</script>
+{% endblock %}

@@ -1,0 +1,204 @@
+{% extends "base.html" %} {% block content %}
+<div class="container">
+	<div class="row justify-content-center">
+		<div class="col-md-8">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="mb-0">Device Proxy Settings</h5>
+				</div>
+				<div class="card-body">
+					<div id="settingsLoading" class="text-center py-4 d-none">
+						<div class="spinner-border text-primary" role="status">
+							<span class="visually-hidden"
+								>Loading device proxy settings...</span
+							>
+						</div>
+					</div>
+					<div
+						id="settingsError"
+						class="alert alert-danger d-none"
+						role="alert"
+					></div>
+					<form id="deviceSettingsForm">
+						<div class="mb-3">
+							<label for="deviceId" class="form-label"
+								>Proxy Username</label
+							>
+							<input
+								type="text"
+								class="form-control bg-light"
+								id="proxyUsername"
+							/>
+						</div>
+						<div class="mb-3">
+							<label for="deviceModel" class="form-label"
+								>Proxy Password</label
+							>
+							<input
+								type="text"
+								class="form-control bg-light"
+								id="proxyPassword"
+							/>
+						</div>
+						<div class="mb-3">
+							<label for="deviceIp" class="form-label"
+								>Proxy Port</label
+							>
+							<input
+								type="text"
+								class="form-control bg-light"
+								id="proxyPort"
+							/>
+						</div>
+						<div class="d-flex justify-content-end">
+							<button type="submit" class="btn btn-primary">
+								Save Changes
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	document.addEventListener("DOMContentLoaded", async function () {
+		const form = document.getElementById("deviceSettingsForm");
+		const loadingSpinner = document.getElementById("settingsLoading");
+		const errorAlert = document.getElementById("settingsError");
+
+		// Get selected device ID
+		const deviceId = localStorage.getItem("selectedDeviceId");
+		if (!deviceId) {
+			errorAlert.textContent =
+				"No device selected. Please select a device first.";
+			errorAlert.classList.remove("d-none");
+			form.classList.add("d-none");
+			return;
+		}
+
+		// Fetch device settings
+		async function fetchDeviceSettings() {
+			loadingSpinner.classList.remove("d-none");
+			form.classList.add("d-none");
+			errorAlert.classList.add("d-none");
+
+			try {
+				const response = await fetch(
+					`http://127.0.0.1:3005/api/v1/gateway/devices/${deviceId}`,
+					{
+						headers: {
+							Authorization: `Bearer ${
+								document.cookie
+									.split("; ")
+									.find((row) =>
+										row.startsWith("client_access_token=")
+									)
+									?.split("=")[1]
+							}`,
+						},
+					}
+				);
+
+				if (!response.ok)
+					throw new Error("Failed to fetch device settings");
+
+				const data = await response.json();
+				const device = data.data;
+
+				// Populate form fields
+				document.getElementById("proxyUsername").value =
+					device.proxyUsername || "";
+				document.getElementById("proxyPassword").value =
+					device.proxyPassword || "";
+				document.getElementById("proxyPort").value =
+					device.proxyPort || 0;
+
+				// Show form
+				form.classList.remove("d-none");
+			} catch (error) {
+				console.error("Error fetching device settings:", error);
+				errorAlert.textContent = `Failed to load device settings: ${error.message}`;
+				errorAlert.classList.remove("d-none");
+			} finally {
+				loadingSpinner.classList.add("d-none");
+			}
+		}
+
+		// Load initial settings
+		await fetchDeviceSettings();
+
+		// Handle form submission
+		form.addEventListener("submit", async function (e) {
+			e.preventDefault();
+
+			const submitButton = this.querySelector('button[type="submit"]');
+			const originalButtonText = submitButton.innerHTML;
+
+			// Disable form while submitting
+			submitButton.disabled = true;
+			submitButton.innerHTML = `
+				<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+				Saving...
+			`;
+
+			// Hide any previous error
+			errorAlert.classList.add("d-none");
+
+			const formData = {
+				proxyUsername: document.getElementById("proxyUsername").value,
+				proxyPassword: document.getElementById("proxyPassword").value,
+				proxyPort: document.getElementById("proxyPort").value,
+			};
+
+			try {
+				const response = await fetch(
+					`http://127.0.0.1:3005/api/v1/gateway/devices/${deviceId}`,
+					{
+						method: "PATCH",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${
+								document.cookie
+									.split("; ")
+									.find((row) =>
+										row.startsWith("client_access_token=")
+									)
+									?.split("=")[1]
+							}`,
+						},
+						body: JSON.stringify(formData),
+					}
+				);
+
+				if (!response.ok)
+					throw new Error("Failed to update device settings");
+
+				// Show success message
+				const successAlert = document.createElement("div");
+				successAlert.className = "alert alert-success";
+				successAlert.role = "alert";
+				successAlert.textContent = `Proxy Settings updated successfully!, please wait for max of 15 minutes 
+					for changes to take effect, check the logs to see if device has picked up changes`;
+
+				// Insert success message before the form
+				form.parentNode.insertBefore(successAlert, form);
+
+				// Remove success message after 3 seconds
+				setTimeout(() => {
+					successAlert.remove();
+				}, 10000);
+			} catch (error) {
+				console.error("Error updating device settings:", error);
+				errorAlert.textContent = `Failed to update settings: ${error.message}`;
+				errorAlert.classList.remove("d-none");
+			} finally {
+				// Re-enable form
+				submitButton.disabled = false;
+				submitButton.innerHTML = originalButtonText;
+			}
+		});
+	});
+</script>
+{% endblock %}

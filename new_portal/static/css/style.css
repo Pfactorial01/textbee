@@ -1,0 +1,336 @@
+/* Add custom styles here */
+body {
+	background-color: #f8f9fa;
+}
+
+.card {
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.jumbotron {
+	padding: 2rem;
+	background-color: #fff;
+	border-radius: 0.3rem;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Sidebar styles */
+.sidebar {
+	min-height: calc(100vh - 56px);
+	box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.1);
+}
+
+.sidebar .nav-link {
+	color: #333;
+	padding: 0.75rem 1rem;
+	font-weight: 500;
+}
+
+.sidebar .nav-link:hover {
+	background-color: rgba(0, 0, 0, 0.05);
+}
+
+.sidebar .nav-link.active {
+	color: #2470dc;
+	background-color: rgba(36, 112, 220, 0.1);
+}
+
+.sidebar .nav-link i {
+	color: #666;
+}
+
+.sidebar .nav-link.active i {
+	color: #2470dc;
+}
+
+#deviceSelect {
+	border-radius: 0.25rem;
+	border: 1px solid #ced4da;
+	background-color: white;
+}
+
+#deviceSelect:disabled {
+	background-color: #e9ecef;
+}
+
+.device-select-wrapper {
+	position: relative;
+}
+
+.device-select-wrapper::after {
+	content: "";
+	position: absolute;
+	right: 10px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 0;
+	height: 0;
+	border-left: 5px solid transparent;
+	border-right: 5px solid transparent;
+	border-top: 5px solid #666;
+	pointer-events: none;
+}
+
+/* Add a loading state */
+.device-loading {
+	opacity: 0.7;
+	pointer-events: none;
+}
+
+/* Main content area */
+main {
+	padding-top: 1.5rem;
+}
+
+@media (max-width: 767.98px) {
+	.sidebar {
+		position: static;
+		height: auto;
+		padding-bottom: 1rem;
+	}
+}
+
+/* Chat styles */
+.chat-container {
+	height: calc(100vh - 120px);
+	padding: 15px;
+}
+
+.chat-messages-panel,
+.chat-contacts-panel {
+	height: 100%;
+}
+
+.chat-messages {
+	height: calc(100% - 120px);
+	overflow-y: auto;
+	padding: 1rem;
+}
+
+.contacts-list {
+	height: calc(100% - 60px);
+	overflow-y: auto;
+}
+
+.message {
+	max-width: 75%;
+	margin-bottom: 1rem;
+	padding: 0.75rem;
+	border-radius: 1rem;
+}
+
+.message-sent {
+	margin-left: auto;
+	background-color: #007bff;
+	color: white;
+	border-bottom-right-radius: 0.25rem;
+}
+
+.message-received {
+	margin-right: auto;
+	background-color: #e9ecef;
+	border-bottom-left-radius: 0.25rem;
+}
+
+.message-time {
+	font-size: 0.75rem;
+	margin-top: 0.25rem;
+}
+
+.message-sent .message-time {
+	color: rgba(255, 255, 255, 0.8);
+}
+
+.message-received .message-time {
+	color: #6c757d;
+}
+
+.chat-contact-info {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.list-group-item {
+	border-left: none;
+	border-right: none;
+	padding: 0.75rem 1rem;
+}
+
+.list-group-item:first-child {
+	border-top: none;
+}
+
+.list-group-item h6 {
+	font-size: 0.9rem;
+	margin-right: 0.5rem;
+}
+
+.list-group-item .badge {
+	font-size: 0.7rem;
+	padding: 0.25em 0.5em;
+}
+
+.list-group-item p {
+	font-size: 0.8rem;
+	margin-bottom: 0;
+}
+
+.list-group-item small {
+	font-size: 0.75rem;
+}
+
+.list-group-item i {
+	font-size: 1rem;
+	vertical-align: -2px;
+}
+
+.min-width-0 {
+	min-width: 0;
+}
+
+.text-truncate {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.message-input-form {
+	padding: 0.5rem;
+}
+
+#messageInput {
+	border-radius: 1.5rem;
+	padding-left: 1rem;
+	padding-right: 1rem;
+}
+
+#sendButton {
+	border-radius: 50%;
+	width: 38px;
+	height: 38px;
+	padding: 0;
+	margin-left: 0.5rem;
+}
+
+#sendButton i {
+	font-size: 1.2rem;
+}
+
+/* Scraper view toggle buttons */
+#resultsSection .btn-group .btn {
+	padding: 0.25rem 0.5rem;
+}
+
+#resultsSection .btn-group .btn.active {
+	background-color: #0d6efd;
+	color: white;
+}
+
+#previewFrame {
+	background-color: white;
+	box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Scraper styles - replace existing scraper styles */
+.preview-container {
+	width: 100%;
+	height: 600px;
+	overflow: auto;
+	padding: 20px;
+	background: white;
+}
+
+#shadowHost {
+	display: block;
+	width: 100%;
+	min-height: 100%;
+}
+
+/* Scrollbar styling */
+.preview-container::-webkit-scrollbar {
+	width: 8px;
+}
+
+.preview-container::-webkit-scrollbar-track {
+	background: #f1f1f1;
+}
+
+.preview-container::-webkit-scrollbar-thumb {
+	background: #888;
+	border-radius: 4px;
+}
+
+.preview-container::-webkit-scrollbar-thumb:hover {
+	background: #555;
+}
+
+/* Unread messages list styles */
+#unreadMessagesList .list-group-item {
+	cursor: pointer;
+	transition: background-color 0.2s;
+}
+
+#unreadMessagesList .list-group-item:hover {
+	background-color: rgba(0, 0, 0, 0.03);
+}
+
+#unreadMessagesList .min-width-0 {
+	min-width: 0;
+	flex: 1;
+}
+
+#unreadMessagesList .text-truncate {
+	max-width: 100%;
+}
+
+/* Logs Page Styles */
+#logsContainer {
+	max-width: 1200px; /* Limit the width of the logs container */
+	margin: 0 auto; /* Center the container */
+	padding: 1rem; /* Add padding */
+}
+
+.alert {
+	margin-bottom: 1rem; /* Space between log messages */
+	border-radius: 0.25rem; /* Rounded corners */
+}
+
+.alert-success {
+	background-color: #d4edda; /* Light green background for success messages */
+	color: #155724; /* Dark green text */
+}
+
+.alert-danger {
+	background-color: #f8d7da; /* Light red background for error messages */
+	color: #721c24; /* Dark red text */
+}
+
+.log-item {
+	position: relative; /* Position relative for timestamp */
+}
+
+.log-timestamp {
+	font-size: 0.75rem; /* Smaller font size for timestamp */
+	color: #6c757d; /* Muted color for timestamp */
+	position: absolute; /* Position absolute to align with the log item */
+	right: 10px; /* Align to the right */
+	bottom: 10px; /* Align to the bottom */
+}
+
+h1 {
+	font-size: 1.5rem; /* Increase the font size for the heading */
+	margin-bottom: 1rem; /* Space below the heading */
+	text-align: center; /* Center the heading */
+}
+
+/* Responsive Styles */
+@media (max-width: 767.98px) {
+	#logsContainer {
+		padding: 0.5rem; /* Reduce padding on smaller screens */
+	}
+
+	h1 {
+		font-size: 1.25rem; /* Smaller heading on mobile */
+	}
+}

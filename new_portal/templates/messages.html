@@ -1,0 +1,24 @@
+{% extends "base.html" %} {% block content %}
+<h2>Messages</h2>
+
+<div class="card">
+	<div class="card-body">
+		{% if messages %}
+		<div class="list-group">
+			{% for message in messages %}
+			<div class="list-group-item">
+				<div class="d-flex w-100 justify-content-between">
+					<h5 class="mb-1">{{ message.phone_number }}</h5>
+					<small>{{ message.timestamp }}</small>
+				</div>
+				<p class="mb-1">{{ message.content }}</p>
+				<small>Status: {{ message.status }}</small>
+			</div>
+			{% endfor %}
+		</div>
+		{% else %}
+		<p class="text-muted">No messages found.</p>
+		{% endif %}
+	</div>
+</div>
+{% endblock %}

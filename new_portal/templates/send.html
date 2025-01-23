@@ -1,0 +1,39 @@
+{% extends "base.html" %} {% block content %}
+<h2>Send Message</h2>
+
+{% if message %}
+<div class="alert alert-{{ 'success' if success else 'danger' }}" role="alert">
+	{{ message }}
+</div>
+{% endif %}
+
+<div class="card">
+	<div class="card-body">
+		<form method="POST">
+			<div class="mb-3">
+				<label for="phone_number" class="form-label"
+					>Phone Number</label
+				>
+				<input
+					type="tel"
+					class="form-control"
+					id="phone_number"
+					name="phone_number"
+					required
+				/>
+			</div>
+			<div class="mb-3">
+				<label for="message" class="form-label">Message</label>
+				<textarea
+					class="form-control"
+					id="message"
+					name="message"
+					rows="4"
+					required
+				></textarea>
+			</div>
+			<button type="submit" class="btn btn-primary">Send Message</button>
+		</form>
+	</div>
+</div>
+{% endblock %}

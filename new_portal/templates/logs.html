@@ -1,0 +1,70 @@
+{% extends "base.html" %} {% block content %}
+<div class="container mt-4">
+	<div
+		id="logsContainer"
+		class="mt-3 overflow-auto"
+		style="max-height: calc(100vh - 150px)"
+	>
+		<!-- Logs will be rendered here -->
+	</div>
+</div>
+<script>
+	async function fetchLogs(deviceId) {
+		try {
+			const response = await fetch(
+				`http://127.0.0.1:3005/api/v1/gateway/devices/${deviceId}/logs`,
+				{
+					headers: {
+						Authorization: `Bearer ${
+							document.cookie
+								.split("; ")
+								.find((row) =>
+									row.startsWith("client_access_token=")
+								)
+								?.split("=")[1]
+						}`,
+					},
+				}
+			);
+
+			if (!response.ok) throw new Error("Failed to fetch device logs");
+
+			const data = await response.json();
+			return data.data; // Assuming logs are in the 'data' field
+		} catch (error) {
+			console.error(error);
+			return []; // Return an empty array in case of error
+		}
+	}
+
+	async function renderLogs() {
+		const deviceId = localStorage.getItem("selectedDeviceId"); // Get the selected device ID from localStorage
+		const logs = await fetchLogs(deviceId); // Fetch logs for the selected device
+
+		const logsContainer = document.getElementById("logsContainer");
+		logsContainer.innerHTML = ""; // Clear existing logs
+
+		logs.forEach((log) => {
+			const logItem = document.createElement("div");
+			logItem.className = `alert alert-${
+				log.type === "error" ? "danger" : "success"
+			} log-item`;
+			logItem.innerHTML = `
+                <strong>${
+					log.type.charAt(0).toUpperCase() + log.type.slice(1)
+				}:</strong> ${log.message}
+                <div class="log-timestamp">${new Date(
+					log.createdAt
+				).toLocaleString()}</div>
+            `;
+			logsContainer.appendChild(logItem);
+		});
+
+		// Scroll to the bottom of the logsContainer
+		logsContainer.scrollTop = logsContainer.scrollHeight;
+	}
+
+	// Call the function to render logs on page load
+	document.addEventListener("DOMContentLoaded", renderLogs);
+</script>
+{% endblock %}
