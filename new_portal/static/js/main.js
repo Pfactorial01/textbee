@@ -62,7 +62,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			try {
 				const response = await fetch(
-					`http://127.0.0.1:3005/api/v1/gateway/devices/${deviceId}/getContacts`,
+					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/getContacts`,
 					{
 						headers: {
 							Authorization: `Bearer ${
@@ -205,7 +205,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			try {
 				const response = await fetch(
-					`http://127.0.0.1:3005/api/v1/gateway/devices/${deviceId}/send-sms`,
+					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/send-sms`,
 					{
 						method: "POST",
 						headers: {
@@ -280,7 +280,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			try {
 				const response = await fetch(
-					`http://127.0.0.1:3005/api/v1/gateway/devices/${deviceId}/${phoneNumber}/getChat`,
+					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/${phoneNumber}/getChat`,
 					{
 						headers: {
 							Authorization: `Bearer ${

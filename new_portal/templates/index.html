@@ -105,7 +105,7 @@
 
 			try {
 				const response = await fetch(
-					`http://127.0.0.1:3005/api/v1/gateway/devices/${deviceId}/getDeviceStats`,
+					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/getDeviceStats`,
 					{
 						headers: {
 							Authorization: `Bearer ${
@@ -154,7 +154,7 @@
 
 			try {
 				const response = await fetch(
-					`http://127.0.0.1:3005/api/v1/gateway/devices/${deviceId}/getContacts`,
+					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/getContacts`,
 					{
 						headers: {
 							Authorization: `Bearer ${
@@ -248,7 +248,7 @@
 		async function fetchApiKeys() {
 			try {
 				const response = await fetch(
-					`http://127.0.0.1:3005/api/v1/auth/api-keys`,
+					`http://100.77.145.14:3005/api/v1/auth/api-keys`,
 					{
 						headers: {
 							Authorization: `Bearer ${
@@ -289,7 +289,7 @@
 		async function generateApiKey() {
 			try {
 				const response = await fetch(
-					`http://127.0.0.1:3005/api/v1/auth/api-keys`,
+					`http://100.77.145.14:3005/api/v1/auth/api-keys`,
 					{
 						method: "POST",
 						headers: {

@@ -1,5 +1,6 @@
 {% extends "base.html" %} {% block content %}
 <div class="container mt-4">
+	This page refreshes every 30 seconds
 	<div
 		id="logsContainer"
 		class="mt-3 overflow-auto"
@@ -9,47 +10,42 @@
 	</div>
 </div>
 <script>
-	async function fetchLogs(deviceId) {
-		try {
-			const response = await fetch(
-				`http://127.0.0.1:3005/api/v1/gateway/devices/${deviceId}/logs`,
-				{
-					headers: {
-						Authorization: `Bearer ${
-							document.cookie
-								.split("; ")
-								.find((row) =>
-									row.startsWith("client_access_token=")
-								)
-								?.split("=")[1]
-						}`,
-					},
-				}
-			);
+	// Call the function to render logs on page load
+	document.addEventListener("DOMContentLoaded", async function () {
+		async function fetchLogs() {
+			const deviceId = localStorage.getItem("selectedDeviceId");
+			try {
+				const response = await fetch(
+					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/logs`,
+					{
+						headers: {
+							Authorization: `Bearer ${
+								document.cookie
+									.split("; ")
+									.find((row) =>
+										row.startsWith("client_access_token=")
+									)
+									?.split("=")[1]
+							}`,
+						},
+					}
+				);
 
-			if (!response.ok) throw new Error("Failed to fetch device logs");
+				if (!response.ok)
+					throw new Error("Failed to fetch device logs");
 
-			const data = await response.json();
-			return data.data; // Assuming logs are in the 'data' field
-		} catch (error) {
-			console.error(error);
-			return []; // Return an empty array in case of error
-		}
-	}
+				const data = await response.json();
+				const logs = data.data;
 
-	async function renderLogs() {
-		const deviceId = localStorage.getItem("selectedDeviceId"); // Get the selected device ID from localStorage
-		const logs = await fetchLogs(deviceId); // Fetch logs for the selected device
+				const logsContainer = document.getElementById("logsContainer");
+				logsContainer.innerHTML = ""; // Clear existing logs
 
-		const logsContainer = document.getElementById("logsContainer");
-		logsContainer.innerHTML = ""; // Clear existing logs
-
-		logs.forEach((log) => {
-			const logItem = document.createElement("div");
-			logItem.className = `alert alert-${
-				log.type === "error" ? "danger" : "success"
-			} log-item`;
-			logItem.innerHTML = `
+				logs.forEach((log) => {
+					const logItem = document.createElement("div");
+					logItem.className = `alert alert-${
+						log.type === "error" ? "danger" : "success"
+					} log-item`;
+					logItem.innerHTML = `
                 <strong>${
 					log.type.charAt(0).toUpperCase() + log.type.slice(1)
 				}:</strong> ${log.message}
@@ -57,14 +53,20 @@
 					log.createdAt
 				).toLocaleString()}</div>
             `;
-			logsContainer.appendChild(logItem);
-		});
+					logsContainer.appendChild(logItem);
+				});
 
-		// Scroll to the bottom of the logsContainer
-		logsContainer.scrollTop = logsContainer.scrollHeight;
-	}
+				// Scroll to the bottom of the logsContainer
+				logsContainer.scrollTop = logsContainer.scrollHeight;
+			} catch (error) {
+				console.error(error);
+			}
+		}
+		// Initial logs fetch
+		await fetchLogs();
 
-	// Call the function to render logs on page load
-	document.addEventListener("DOMContentLoaded", renderLogs);
+		// Refresh logs every 30 seconds
+		setInterval(fetchLogs, 30000);
+	});
 </script>
 {% endblock %}

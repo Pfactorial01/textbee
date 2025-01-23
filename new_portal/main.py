@@ -15,7 +15,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # Backend API configuration
-BACKEND_URL = "http://127.0.0.1:3005/api/v1"
+BACKEND_URL = "http://100.77.145.14:3005/api/v1"
 
 # Authentication middleware
 async def get_current_user(request: Request):
