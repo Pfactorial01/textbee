@@ -21,12 +21,15 @@ import {
   BatchResponse,
   Message,
 } from 'firebase-admin/lib/messaging/messaging-api'
+import { Log, LogDocument } from './schemas/log.schema'
+
 @Injectable()
 export class GatewayService {
   constructor(
     @InjectModel(Device.name) private deviceModel: Model<DeviceDocument>,
     @InjectModel(SMS.name) private smsModel: Model<SMS>,
     @InjectModel(SMSBatch.name) private smsBatchModel: Model<SMSBatch>,
+    @InjectModel(Log.name) private logModel: Model<LogDocument>,
     private authService: AuthService,
   ) {}
 
@@ -46,7 +49,15 @@ export class GatewayService {
         enabled: true,
       })
     } else {
-      return await this.deviceModel.create({ ...input, user })
+      return await this.deviceModel.create({
+        ...input,
+        user,
+        name: input.model,
+        ip: '',
+        proxyUsername: 'defaultUsername',
+        proxyPassword: 'defaultPassword',
+        proxyPort: 3000,
+      })
     }
   }
 
@@ -71,6 +82,15 @@ export class GatewayService {
         },
         HttpStatus.NOT_FOUND,
       )
+    }
+    if (input?.proxyUsername || input?.proxyPassword || input?.proxyPort) {
+      const logData = new this.logModel({
+        device: device._id,
+        message:
+          'Device proxy settings updated, device will pickup new settings soon',
+        type: 'info',
+      })
+      await logData.save()
     }
 
     return await this.deviceModel.findByIdAndUpdate(
@@ -486,12 +506,20 @@ export class GatewayService {
       } others`
     }
   }
-  async getConfig() {
-    const username = process.env.PROXY_USERNAME
-    const password = process.env.PROXY_PASSWORD
+  async getConfig(input) {
+    const { deviceId } = input
+    if (!deviceId) {
+      return {
+        username: 'proxyUsername',
+        password: 'proxyPassword',
+        port: 3000,
+      }
+    }
+    const device = await this.deviceModel.findOne({ _id: deviceId })
     return {
-      username,
-      password,
+      username: device.proxyUsername,
+      password: device.proxyPassword,
+      port: device.proxyPort,
     }
   }
   async receivePing() {
@@ -499,16 +527,18 @@ export class GatewayService {
     return
   }
   async scrapeWebsiteThroughDevice(input) {
-    const { deviceIp, url } = input
+    const { deviceId, url } = input
     if (!url) {
       throw new HttpException('Website URL is required', HttpStatus.BAD_REQUEST)
     }
-    if (!deviceIp) {
+    if (!deviceId) {
       throw new HttpException('DeviceIp is required', HttpStatus.BAD_REQUEST)
     }
-    const username = process.env.PROXY_USERNAME
-    const password = process.env.PROXY_PASSWORD
-    const proxyUrl = `socks5://${username}:${password}@${deviceIp}:3000`
+    const device = await this.deviceModel.findOne({ _id: deviceId })
+    const username = device.proxyUsername
+    const password = device.proxyPassword
+    const port = device.proxyPort
+    const proxyUrl = `socks5://${username}:${password}@${device.ip}:${port}`
     const proxyAgent = new SocksProxyAgent(proxyUrl)
 
     const httpService = new HttpService()
@@ -522,16 +552,6 @@ export class GatewayService {
     return res.data
   }
   async getChatWithNumber(deviceId, number) {
-    const sms = await this.smsModel.create({
-      device: deviceId,
-      message: 'new mesage 2',
-      type: SMSType.RECEIVED,
-      sender: number,
-      receivedAt: '2025-01-11T18:55:32.000Z',
-      read: false,
-    })
-    console.log(sms)
-
     const device = await this.deviceModel.findById(deviceId)
 
     if (!device) {
@@ -543,6 +563,16 @@ export class GatewayService {
         HttpStatus.BAD_REQUEST,
       )
     }
+
+    // const sms = await this.smsModel.create({
+    //   device: device._id,
+    //   message: 'new mesage 11',
+    //   type: SMSType.RECEIVED,
+    //   sender: number,
+    //   receivedAt: '2025-01-20T22:55:32.000Z',
+    //   read: false,
+    // })
+    // console.log(sms)
 
     // @ts-ignore
     const receivedMesages = await this.smsModel
@@ -568,7 +598,7 @@ export class GatewayService {
       null,
       { sort: { sentAt: -1 }, limit: 200 },
     )
-    const result = await this.smsModel.updateMany(
+    await this.smsModel.updateMany(
       {
         device: device._id,
         type: SMSType.RECEIVED,
@@ -579,6 +609,130 @@ export class GatewayService {
       },
     )
     return [...receivedMesages, ...sentMessages]
-    // return []
+  }
+  async getDevicesContacts(deviceId) {
+    const device = await this.deviceModel.findById(deviceId)
+
+    if (!device) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device does not exist',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+    const contacts = await this.smsModel.aggregate([
+      {
+        $match: {
+          device: device._id, // Replace with your actual device ObjectId
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          number: { $ifNull: ['$recipient', '$sender'] }, // Combine sender and recipient into a single 'number' field
+          message: 1,
+          createdAt: 1,
+          type: 1,
+          read: 1,
+        },
+      },
+      {
+        $sort: {
+          number: 1, // Sort by number for grouping
+          createdAt: -1, // Sort by createdAt descending to get the last message first
+        },
+      },
+      {
+        $group: {
+          _id: '$number',
+          lastMessage: { $first: '$message' }, // Get the first message (which is the last due to sorting)
+          lastMessageType: { $first: '$type' },
+          lastMessageCreatedAt: { $first: '$createdAt' },
+          read: { $first: '$read' },
+          sms: {
+            $push: {
+              _id: '$_id',
+              message: '$message',
+              type: '$type',
+              createdAt: '$createdAt',
+              read: '$read',
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          lastMessage: 1,
+          lastMessageType: 1,
+          lastMessageCreatedAt: 1,
+          read: 1,
+        },
+      },
+    ])
+    return contacts
+  }
+  async getDeviceMessageStats(deviceId) {
+    const device = await this.deviceModel.findById(deviceId)
+
+    if (!device) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device does not exist',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+
+    const sentSMSCount = await this.smsModel.countDocuments({
+      device: device._id,
+      type: SMSType.SENT,
+    })
+
+    const receivedSMSCount = await this.smsModel.countDocuments({
+      device: device._id,
+      type: SMSType.RECEIVED,
+    })
+
+    return {
+      sentSMSCount,
+      receivedSMSCount,
+    }
+  }
+  async addLog(deviceId: string, log: Log) {
+    const device = await this.deviceModel.findById(deviceId)
+    if (!device) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device does not exist',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+    const logData = new this.logModel({
+      device: device._id,
+      message: log.message,
+      type: log.type,
+    })
+    await logData.save()
+    return logData
+  }
+  async getDeviceLogs(deviceId: string) {
+    const device = await this.deviceModel.findById(deviceId)
+    if (!device) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device does not exist',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+    const logs = await this.logModel.find({ device: device._id })
+    return logs
   }
 }

@@ -107,7 +107,6 @@ export class AuthService {
         HttpStatus.BAD_REQUEST,
       )
     }
-
     this.validateEmail(userData.email)
     this.validatePassword(userData.password)
 
@@ -120,13 +119,13 @@ export class AuthService {
     user.lastLoginAt = new Date()
     await user.save()
 
-    this.mailService.sendEmailFromTemplate({
-      to: user.email,
-      subject: 'Welcome to TextBee - Lets get started!',
-      template: 'welcome-1',
-      context: { name: user.name },
-      from: 'vernu vernu@textbee.dev',
-    })
+    // this.mailService.sendEmailFromTemplate({
+    //   to: user.email,
+    //   subject: 'Welcome to TextBee - Lets get started!',
+    //   template: 'welcome-1',
+    //   context: { name: user.name },
+    //   from: 'vernu vernu@textbee.dev',
+    // })
 
     const payload = { email: user.email, sub: user._id }
 
@@ -231,7 +230,7 @@ export class AuthService {
     const hashedApiKey = await bcrypt.hash(apiKey, 10)
 
     const newApiKey = new this.apiKeyModel({
-      apiKey: apiKey.substr(0, 17) + '*'.repeat(18),
+      apiKey,
       hashedApiKey,
       user: currentUser._id,
     })

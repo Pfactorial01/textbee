@@ -49,6 +49,24 @@ export class Device {
 
   @Prop({ type: Number, default: 0 })
   receivedSMSCount: number
+
+  @Prop({ type: String })
+  name: string
+
+  @Prop({ type: String })
+  ip: string
+
+  @Prop({ type: String })
+  machineKey: string
+
+  @Prop({ type: String })
+  proxyUsername: string
+
+  @Prop({ type: String })
+  proxyPassword: string
+
+  @Prop({ type: Number })
+  proxyPort: number
 }
 
 export const DeviceSchema = SchemaFactory.createForClass(Device)

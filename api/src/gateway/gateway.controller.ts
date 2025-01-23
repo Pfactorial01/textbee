@@ -28,6 +28,7 @@ import {
 } from './gateway.dto'
 import { GatewayService } from './gateway.service'
 import { CanModifyDevice } from './guards/can-modify-device.guard'
+import { Log } from './schemas/log.schema'
 
 @ApiTags('gateway')
 @ApiBearerAuth()
@@ -55,6 +56,14 @@ export class GatewayController {
   @Get('/devices')
   async getDevices(@Request() req) {
     const data = await this.gatewayService.getDevicesForUser(req.user)
+    return { data }
+  }
+
+  @ApiOperation({ summary: 'Get device by id' })
+  @UseGuards(AuthGuard)
+  @Get('/devices/:id')
+  async getDevice(@Param('id') deviceId: string) {
+    const data = await this.gatewayService.getDeviceById(deviceId)
     return { data }
   }
 
@@ -122,9 +131,9 @@ export class GatewayController {
     return { data }
   }
   @ApiOperation({ summary: 'Get proxy config' })
-  @Get('/get-config')
-  async getConfig(@Request() req) {
-    const data = await this.gatewayService.getConfig()
+  @Post('/get-config')
+  async getConfig(@Request() req, @Body() input) {
+    const data = await this.gatewayService.getConfig(input)
     return { data }
   }
 
@@ -144,14 +153,48 @@ export class GatewayController {
 
   @ApiOperation({ summary: 'Get chat with specific number' })
   @ApiResponse({ status: 200 })
+  @UseGuards(AuthGuard)
   @Get(['/devices/:id/:number/getChat'])
   async getChatWithNumber(
     @Param('id') deviceId: string,
     @Param('number') number: string,
   ) {
-    console.log('heree')
-
     const data = await this.gatewayService.getChatWithNumber(deviceId, number)
+    return { data }
+  }
+
+  @ApiOperation({ summary: 'Get contacts list of device' })
+  @ApiResponse({ status: 200 })
+  @UseGuards(AuthGuard)
+  @Get(['/devices/:id/getContacts'])
+  async getDevicesContacts(@Param('id') deviceId: string) {
+    const data = await this.gatewayService.getDevicesContacts(deviceId)
+    return { data }
+  }
+
+  @ApiOperation({ summary: 'Get device stats' })
+  @ApiResponse({ status: 200 })
+  @UseGuards(AuthGuard)
+  @Get(['/devices/:id/getDeviceStats'])
+  async getDevicesStats(@Param('id') deviceId: string) {
+    const data = await this.gatewayService.getDeviceMessageStats(deviceId)
+    return { data }
+  }
+
+  @ApiOperation({ summary: 'Add to device Logs' })
+  @ApiResponse({ status: 200 })
+  @Post(['/devices/:id/log'])
+  async addLog(@Param('id') deviceId: string, @Body() log: Log) {
+    const data = await this.gatewayService.addLog(deviceId, log)
+    return { data }
+  }
+
+  @ApiOperation({ summary: 'Get device logs' })
+  @ApiResponse({ status: 200 })
+  @UseGuards(AuthGuard)
+  @Get(['/devices/:id/logs'])
+  async getLogs(@Param('id') deviceId: string) {
+    const data = await this.gatewayService.getDeviceLogs(deviceId)
     return { data }
   }
 }

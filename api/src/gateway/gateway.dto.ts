@@ -33,6 +33,24 @@ export class RegisterDeviceInputDTO {
 
   @ApiProperty({ type: String })
   appVersionCode?: number
+
+  @ApiProperty({ type: String })
+  ip?: string
+
+  @ApiProperty({ type: String })
+  name?: string
+
+  @ApiProperty({ type: String })
+  machineKey?: string
+
+  @ApiProperty({ type: String })
+  proxyUsername?: string
+
+  @ApiProperty({ type: String })
+  proxyPassword?: string
+
+  @ApiProperty({ type: Number })
+  proxyPort?: number
 }
 
 export class SMSData {
