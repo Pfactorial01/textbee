@@ -393,31 +393,60 @@ document.addEventListener("DOMContentLoaded", function () {
 		}
 	}
 
-	// const deviceDropdown = document.getElementById("deviceDropdown");
-	// const selectedDeviceId = localStorage.getItem("selectedDeviceId");
+	// New Chat Button functionality
+	const newChatButton = document.getElementById("newChatButton");
+	const newChatForm = document.getElementById("newChatForm");
 
-	// // Populate the dropdown if selectedDeviceId exists
-	// if (selectedDeviceId) {
-	// 	const selectedOption = Array.from(deviceSelect.options).find(
-	// 		(option) => option.value === selectedDeviceId
-	// 	);
-	// 	if (selectedOption) {
-	// 		deviceDropdown.textContent = selectedOption.text; // Set button text to selected device name
-	// 		deviceDropdown.setAttribute("data-value", selectedDeviceId); // Store selected value
-	// 	}
-	// }
+	newChatForm.addEventListener("submit", async function (e) {
+		e.preventDefault();
+		const phoneNumber = document.getElementById("phoneNumber").value.trim();
+		const message = document.getElementById("message").value.trim();
 
-	// // Handle selection of device
-	// document.querySelectorAll(".dropdown-item").forEach((item) => {
-	// 	item.addEventListener("click", function (event) {
-	// 		event.preventDefault(); // Prevent the default anchor behavior
-	// 		const selectedValue = this.getAttribute("data-value");
-	// 		const selectedText = this.textContent; // Get the selected device name
-	// 		deviceDropdown.textContent = selectedText; // Update button text
-	// 		deviceDropdown.setAttribute("data-value", selectedValue); // Store selected value
+		if (phoneNumber && message) {
+			const deviceId = localStorage.getItem("selectedDeviceId");
 
-	// 		// Update localStorage with the selected device ID
-	// 		localStorage.setItem("selectedDeviceId", selectedValue);
-	// 	});
-	// });
+			// Disable the button while sending
+			const sendButton = document.getElementById("sendButton");
+			sendButton.disabled = true;
+
+			try {
+				const response = await fetch(
+					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/send-sms`,
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${
+								document.cookie
+									.split("; ")
+									.find((row) =>
+										row.startsWith("client_access_token=")
+									)
+									?.split("=")[1]
+							}`,
+						},
+						body: JSON.stringify({
+							message: message,
+							recipients: [phoneNumber],
+						}),
+					}
+				);
+
+				if (!response.ok) {
+					throw new Error("Failed to send message");
+				}
+
+				// Refresh the page to update context
+				window.location.reload();
+			} catch (error) {
+				console.error("Error sending message:", error);
+				alert(`Failed to send message: ${error.message}`);
+			} finally {
+				// Re-enable button
+				sendButton.disabled = false;
+			}
+		} else {
+			alert("Please provide both a phone number and a message.");
+		}
+	});
 });

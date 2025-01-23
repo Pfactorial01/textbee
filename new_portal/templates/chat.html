@@ -66,6 +66,15 @@
 							id="contactSearch"
 						/>
 					</div>
+					<!-- New Chat Button -->
+					<button
+						id="newChatButton"
+						class="btn btn-success mt-2"
+						data-bs-toggle="modal"
+						data-bs-target="#newChatModal"
+					>
+						New Chat
+					</button>
 				</div>
 				<div class="card-body contacts-list p-0" id="contactsList">
 					<div class="d-flex justify-content-center p-3">
@@ -76,6 +85,58 @@
 						</div>
 					</div>
 				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Modal for New Chat -->
+<div
+	class="modal fade"
+	id="newChatModal"
+	tabindex="-1"
+	aria-labelledby="newChatModalLabel"
+	aria-hidden="true"
+>
+	<div class="modal-dialog">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="newChatModalLabel">
+					Start a New Chat
+				</h5>
+				<button
+					type="button"
+					class="btn-close"
+					data-bs-dismiss="modal"
+					aria-label="Close"
+				></button>
+			</div>
+			<div class="modal-body">
+				<form id="newChatForm">
+					<div class="mb-3">
+						<label for="phoneNumber" class="form-label"
+							>Phone Number</label
+						>
+						<input
+							type="text"
+							class="form-control"
+							id="phoneNumber"
+							required
+						/>
+					</div>
+					<div class="mb-3">
+						<label for="message" class="form-label">Message</label>
+						<textarea
+							class="form-control"
+							id="message"
+							rows="3"
+							required
+						></textarea>
+					</div>
+					<button type="submit" class="btn btn-primary">
+						Send Message
+					</button>
+				</form>
 			</div>
 		</div>
 	</div>
