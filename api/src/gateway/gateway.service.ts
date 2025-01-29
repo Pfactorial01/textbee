@@ -22,6 +22,7 @@ import {
   Message,
 } from 'firebase-admin/lib/messaging/messaging-api'
 import { Log, LogDocument } from './schemas/log.schema'
+import fetch from 'node-fetch'
 
 @Injectable()
 export class GatewayService {
@@ -53,7 +54,6 @@ export class GatewayService {
         ...input,
         user,
         name: input.model,
-        ip: '',
         proxyUsername: 'defaultUsername',
         proxyPassword: 'defaultPassword',
         proxyPort: 3000,
@@ -84,10 +84,22 @@ export class GatewayService {
       )
     }
     if (input?.proxyUsername || input?.proxyPassword || input?.proxyPort) {
+      const proxyConfig = {
+        username: input.proxyUsername,
+        password: input.proxyPassword,
+        port: input.proxyPort,
+      }
+      const response = await fetch(`http://${device.ip}:8080`, {
+        method: 'POST',
+        body: JSON.stringify(proxyConfig),
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
       const logData = new this.logModel({
         device: device._id,
-        message:
-          'Device proxy settings updated, device will pickup new settings soon',
+        message: 'Device proxy settings updated',
         type: 'info',
       })
       await logData.save()
@@ -196,7 +208,15 @@ export class GatewayService {
         receivers: [recipient],
       }
       const stringifiedSMSData = JSON.stringify(updatedSMSData)
-
+      const res = await fetch(
+        'http://192.168.12.109/webhook-test/28b6c43b-0da1-4f7c-934d-d0d922400854',
+        {
+          method: 'POST',
+          body: updatedSMSData,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+      console.log(await res.json())
       const fcmMessage: Message = {
         data: {
           smsData: stringifiedSMSData,
@@ -424,6 +444,15 @@ export class GatewayService {
       read: false,
     })
 
+    await fetch(
+      'http://192.168.12.109/webhook/516c7928-d4f4-4268-98ea-efb99a1a1b0a',
+      {
+        method: 'POST',
+        body: JSON.stringify(sms),
+        headers: { 'Content-Type': 'application/json' },
+      },
+    )
+
     this.deviceModel
       .findByIdAndUpdate(deviceId, {
         $inc: { receivedSMSCount: 1 },
@@ -563,16 +592,6 @@ export class GatewayService {
         HttpStatus.BAD_REQUEST,
       )
     }
-
-    // const sms = await this.smsModel.create({
-    //   device: device._id,
-    //   message: 'new mesage 11',
-    //   type: SMSType.RECEIVED,
-    //   sender: number,
-    //   receivedAt: '2025-01-20T22:55:32.000Z',
-    //   read: false,
-    // })
-    // console.log(sms)
 
     // @ts-ignore
     const receivedMesages = await this.smsModel

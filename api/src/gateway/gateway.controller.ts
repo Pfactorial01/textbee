@@ -94,6 +94,12 @@ export class GatewayController {
     @Param('id') deviceId: string,
     @Body() smsData: SendSMSInputDTO,
   ) {
+    const recipents = smsData.recipients || smsData.receivers
+    const newRecipents = recipents.map((recipient) =>
+      recipient.replace(/-/g, ''),
+    )
+    smsData.recipients = newRecipents
+    smsData.receivers = newRecipents
     const data = await this.gatewayService.sendSMS(deviceId, smsData)
     return { data }
   }
@@ -115,6 +121,9 @@ export class GatewayController {
   @Post(['/devices/:id/receiveSMS', '/devices/:id/receive-sms'])
   @UseGuards(AuthGuard, CanModifyDevice)
   async receiveSMS(@Param('id') deviceId: string, @Body() dto: ReceivedSMSDTO) {
+    const sender = dto.sender
+    const newSender = sender.replace(/-/g, '')
+    dto.sender = newSender
     const data = await this.gatewayService.receiveSMS(deviceId, dto)
     return { data }
   }

@@ -53,6 +53,9 @@ dependencies:
   mongoose:
     specifier: ^8.7.2
     version: 8.9.5
+  node-fetch:
+    specifier: '2'
+    version: 2.7.0
   nodemailer:
     specifier: ^6.9.15
     version: 6.9.16
