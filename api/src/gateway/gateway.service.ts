@@ -208,15 +208,6 @@ export class GatewayService {
         receivers: [recipient],
       }
       const stringifiedSMSData = JSON.stringify(updatedSMSData)
-      const res = await fetch(
-        'http://192.168.12.109/webhook-test/28b6c43b-0da1-4f7c-934d-d0d922400854',
-        {
-          method: 'POST',
-          body: updatedSMSData,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      )
-      console.log(await res.json())
       const fcmMessage: Message = {
         data: {
           smsData: stringifiedSMSData,
@@ -444,14 +435,15 @@ export class GatewayService {
       read: false,
     })
 
-    await fetch(
-      'http://192.168.12.109/webhook/516c7928-d4f4-4268-98ea-efb99a1a1b0a',
+    const res = await fetch(
+      'https://192.168.12.109/webhook/28b6c43b-0da1-4f7c-934d-d0d922400854/',
       {
-        method: 'POST',
+        method: 'post',
         body: JSON.stringify(sms),
         headers: { 'Content-Type': 'application/json' },
       },
     )
+    console.log(await res.json())
 
     this.deviceModel
       .findByIdAndUpdate(deviceId, {
