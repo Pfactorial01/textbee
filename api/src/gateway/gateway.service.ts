@@ -22,6 +22,10 @@ import {
   Message,
 } from 'firebase-admin/lib/messaging/messaging-api'
 import { Log, LogDocument } from './schemas/log.schema'
+import {
+  Conversation,
+  ConversationDocument,
+} from './schemas/conversation.schema'
 import fetch from 'node-fetch'
 
 @Injectable()
@@ -31,6 +35,8 @@ export class GatewayService {
     @InjectModel(SMS.name) private smsModel: Model<SMS>,
     @InjectModel(SMSBatch.name) private smsBatchModel: Model<SMSBatch>,
     @InjectModel(Log.name) private logModel: Model<LogDocument>,
+    @InjectModel(Conversation.name)
+    private conversationModel: Model<ConversationDocument>,
     private authService: AuthService,
   ) {}
 
@@ -406,6 +412,17 @@ export class GatewayService {
         HttpStatus.BAD_REQUEST,
       )
     }
+    let conversation = await this.conversationModel.findOne({
+      device: device.id,
+      number: dto.sender,
+    })
+    if (!conversation) {
+      conversation = await this.conversationModel.create({
+        device: device.id,
+        number: dto.sender,
+        thread_id: '',
+      })
+    }
 
     if (
       (!dto.receivedAt && !dto.receivedAtInMillis) ||
@@ -439,7 +456,15 @@ export class GatewayService {
       'https://192.168.12.109/webhook/28b6c43b-0da1-4f7c-934d-d0d922400854/',
       {
         method: 'post',
-        body: JSON.stringify(sms),
+        body: JSON.stringify({
+          device: device._id,
+          message: dto.message,
+          type: SMSType.RECEIVED,
+          sender: dto.sender,
+          receivedAt,
+          read: false,
+          thread_id: conversation.thread_id,
+        }),
         headers: { 'Content-Type': 'application/json' },
       },
     )
@@ -745,5 +770,27 @@ export class GatewayService {
     }
     const logs = await this.logModel.find({ device: device._id })
     return logs
+  }
+  async updateConversationData(deviceId, conversationData) {
+    const device = await this.deviceModel.findById(deviceId)
+    if (!device) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device does not exist',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+    const conversation = await this.conversationModel.updateOne(
+      {
+        device: device.id,
+        number: conversationData.sender,
+      },
+      {
+        thread_id: conversationData.thread_id,
+      },
+    )
+    return conversation
   }
 }

@@ -206,4 +206,18 @@ export class GatewayController {
     const data = await this.gatewayService.getDeviceLogs(deviceId)
     return { data }
   }
+
+  @ApiOperation({ summary: 'Update conversation thread_id' })
+  @ApiResponse({ status: 200 })
+  @Post(['/devices/:id/update-conversation'])
+  async updateConversation(
+    @Param('id') deviceId: string,
+    @Body() conversationData,
+  ) {
+    const data = await this.gatewayService.updateConversationData(
+      deviceId,
+      conversationData,
+    )
+    return { data }
+  }
 }

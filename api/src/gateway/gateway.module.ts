@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
 import { Device, DeviceSchema } from './schemas/device.schema'
 import { Log, LogSchema } from './schemas/log.schema'
+import { Conversation, ConversationSchema } from './schemas/conversation.schema'
 import { GatewayController } from './gateway.controller'
 import { GatewayService } from './gateway.service'
 import { AuthModule } from '../auth/auth.module'
@@ -27,6 +28,10 @@ import { SMSBatch, SMSBatchSchema } from './schemas/sms-batch.schema'
       {
         name: Log.name,
         schema: LogSchema,
+      },
+      {
+        name: Conversation.name,
+        schema: ConversationSchema,
       },
     ]),
     AuthModule,
