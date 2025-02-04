@@ -5,3 +5,7 @@ node_modules
 .next
 
 textbee_env
+
+new_portal_env
+
+__pycache__

@@ -67,6 +67,12 @@ export class Device {
 
   @Prop({ type: Number })
   proxyPort: number
+
+  @Prop({ type: String })
+  followUpSchedulePlain: string
+
+  @Prop({ type: Array })
+  followUpSchedule: number[]
 }
 
 export const DeviceSchema = SchemaFactory.createForClass(Device)

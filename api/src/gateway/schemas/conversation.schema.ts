@@ -18,6 +18,15 @@ export class Conversation {
   thread_id: string
 
   @Prop({ type: Date })
+  followUpDue: Date
+
+  @Prop({ type: Number })
+  lastFollowUpSent: number
+
+  @Prop({ type: Date })
+  firstFollowUpDate: Date
+
+  @Prop({ type: Date })
   createdAt: Date
 }
 

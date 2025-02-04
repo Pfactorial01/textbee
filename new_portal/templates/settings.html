@@ -64,6 +64,18 @@
 								placeholder="Enter device name"
 							/>
 						</div>
+						<div class="mb-3">
+							<label for="followUpSchedule" class="form-label"
+								>Follow Up Schedule (comma-separated numbers
+								(days))</label
+							>
+							<input
+								type="text"
+								class="form-control"
+								id="followUpSchedule"
+								placeholder="Enter follow up schedule"
+							/>
+						</div>
 						<div class="d-flex justify-content-end">
 							<button type="submit" class="btn btn-primary">
 								Save Changes
@@ -127,6 +139,8 @@
 					device.model || "";
 				document.getElementById("deviceName").value = device.name || "";
 				document.getElementById("deviceIp").value = device.ip || "";
+				document.getElementById("followUpSchedule").value =
+					device.followUpSchedulePlain || "";
 
 				// Show form
 				form.classList.remove("d-none");
@@ -161,7 +175,26 @@
 
 			const formData = {
 				name: document.getElementById("deviceName").value,
+				followUpSchedule:
+					document.getElementById("followUpSchedule").value,
 			};
+
+			const followUpSchedule = formData.followUpSchedule
+				.split(",")
+				.map(Number);
+			const isValidSchedule = followUpSchedule.every((num, index) => {
+				return (
+					!isNaN(num) &&
+					(index === 0 || num > followUpSchedule[index - 1])
+				);
+			});
+
+			if (!isValidSchedule) {
+				errorAlert.textContent =
+					"Follow Up Schedule must be a sequence of numbers separated by commas, with each subsequent number greater than the last.";
+				errorAlert.classList.remove("d-none");
+				return;
+			}
 
 			try {
 				const response = await fetch(

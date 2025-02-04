@@ -203,6 +203,78 @@ export class GatewayService {
         recipient,
         requestedAt: new Date(),
       })
+      const followUpSchedule = device.followUpSchedule
+      let conversation = await this.conversationModel.findOne({
+        device: device.id,
+        number: recipient,
+      })
+      if (followUpSchedule.length > 0) {
+        if (!conversation) {
+          conversation = await this.conversationModel.create({
+            device: device.id,
+            number: recipient,
+            thread_id: '',
+            followUpDue: new Date(new Date().getTime() + followUpSchedule[0]),
+          })
+        } else {
+          const lastFollowUpSent = conversation.lastFollowUpSent
+          if (lastFollowUpSent && smsData.isFollowUp) {
+            const indexOfLastFollowUpSent = followUpSchedule.findIndex(
+              (item) => item === lastFollowUpSent,
+            )
+            let indexOfNextFollowUp
+            if (
+              indexOfLastFollowUpSent !== -1 &&
+              indexOfLastFollowUpSent < followUpSchedule.length - 1
+            ) {
+              indexOfNextFollowUp = indexOfLastFollowUpSent + 1
+            }
+            if (indexOfNextFollowUp === undefined) {
+              await this.conversationModel.findByIdAndUpdate(conversation._id, {
+                followUpDue: null,
+                lastFollowUpSent: null,
+                firstFollowUpDate: null,
+              })
+            } else {
+              const unsentFollowUp = followUpSchedule[indexOfNextFollowUp]
+              await this.conversationModel.findByIdAndUpdate(conversation._id, {
+                followUpDue: new Date(
+                  conversation.firstFollowUpDate.getTime() + unsentFollowUp,
+                ),
+                lastFollowUpSent: unsentFollowUp,
+              })
+            }
+          } else {
+            if (smsData.isFollowUp) {
+              await this.conversationModel.findByIdAndUpdate(conversation._id, {
+                ...(followUpSchedule.length > 1 && {
+                  followUpDue: new Date(
+                    new Date().getTime() + followUpSchedule[1],
+                  ),
+                }),
+                firstFollowUpDate: new Date(),
+                lastFollowUpSent: followUpSchedule[1],
+              })
+            } else {
+              await this.conversationModel.findByIdAndUpdate(conversation._id, {
+                followUpDue: new Date(
+                  new Date().getTime() + followUpSchedule[0],
+                ),
+              })
+            }
+          }
+        }
+      } else {
+        if (!conversation) {
+          conversation = await this.conversationModel.create({
+            device: device.id,
+            number: recipient,
+            thread_id: '',
+            followUpDue: new Date(new Date().getTime() + followUpSchedule[0]),
+          })
+        }
+      }
+
       const updatedSMSData = {
         smsId: sms._id,
         smsBatchId: smsBatch._id,
@@ -423,6 +495,11 @@ export class GatewayService {
         thread_id: '',
       })
     }
+    await this.conversationModel.findByIdAndUpdate(conversation._id, {
+      followUpDue: null,
+      firstFollowUpDate: null,
+      lastFollowUpSent: null,
+    })
 
     if (
       (!dto.receivedAt && !dto.receivedAtInMillis) ||
@@ -443,6 +520,38 @@ export class GatewayService {
       ? new Date(dto.receivedAtInMillis)
       : dto.receivedAt
 
+    const receivedMesages = await this.smsModel
+      .find(
+        {
+          device: device._id,
+          type: SMSType.RECEIVED,
+          sender: dto.sender,
+        },
+        null,
+        { sort: { receivedAt: -1 }, limit: 200 },
+      )
+      .populate({
+        path: 'device',
+        select: '_id brand model buildId enabled',
+      })
+    const sentMessages = await this.smsModel.find(
+      {
+        device: device._id,
+        type: SMSType.SENT,
+        recipient: dto.sender,
+      },
+      null,
+      { sort: { sentAt: -1 }, limit: 200 },
+    )
+
+    const previousChat = [...receivedMesages, ...sentMessages]
+    const messageHistory = previousChat
+      // @ts-ignore
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      .map((message) => ({
+        message: message.message,
+        direction: message.type === SMSType.SENT ? 'outbound' : 'inbound',
+      }))
     const sms = await this.smsModel.create({
       device: device._id,
       message: dto.message,
@@ -464,12 +573,13 @@ export class GatewayService {
           receivedAt,
           read: false,
           thread_id: conversation.thread_id,
+          meta_data: {
+            message_history: messageHistory,
+          },
         }),
         headers: { 'Content-Type': 'application/json' },
       },
     )
-    console.log(await res.json())
-
     this.deviceModel
       .findByIdAndUpdate(deviceId, {
         $inc: { receivedSMSCount: 1 },
@@ -792,5 +902,12 @@ export class GatewayService {
       },
     )
     return conversation
+  }
+  async fetchFollowUpDueConversations() {
+    const currentTime = new Date()
+    const dueConversations = await this.conversationModel.find({
+      followUpDue: { $lte: currentTime },
+    })
+    return dueConversations
   }
 }

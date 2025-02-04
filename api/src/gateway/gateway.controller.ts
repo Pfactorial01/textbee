@@ -74,6 +74,15 @@ export class GatewayController {
     @Param('id') deviceId: string,
     @Body() input: RegisterDeviceInputDTO,
   ) {
+    input.followUpSchedulePlain = input.followUpSchedule
+    let followUpSchedule
+    if (input?.followUpSchedule) {
+      followUpSchedule = []
+      input?.followUpSchedule.split(',').forEach((item) => {
+        followUpSchedule.push(parseInt(item) * 24 * 60 * 60 * 1000)
+      })
+    }
+    input.followUpSchedule = followUpSchedule
     const data = await this.gatewayService.updateDevice(deviceId, input)
     return { data }
   }
@@ -209,6 +218,7 @@ export class GatewayController {
 
   @ApiOperation({ summary: 'Update conversation thread_id' })
   @ApiResponse({ status: 200 })
+  @UseGuards(AuthGuard)
   @Post(['/devices/:id/update-conversation'])
   async updateConversation(
     @Param('id') deviceId: string,
@@ -218,6 +228,14 @@ export class GatewayController {
       deviceId,
       conversationData,
     )
+    return { data }
+  }
+  @ApiOperation({ summary: 'Fetch Conversations Due for follow-up' })
+  @ApiResponse({ status: 200 })
+  @UseGuards(AuthGuard)
+  @Get(['/get-follow-up-due-conversations'])
+  async fetchConversationsDueForFollowUp() {
+    const data = await this.gatewayService.fetchFollowUpDueConversations()
     return { data }
   }
 }

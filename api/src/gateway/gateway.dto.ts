@@ -51,6 +51,12 @@ export class RegisterDeviceInputDTO {
 
   @ApiProperty({ type: Number })
   proxyPort?: number
+
+  @ApiProperty({ type: String })
+  followUpSchedule?: string
+
+  @ApiProperty({ type: String })
+  followUpSchedulePlain?: string
 }
 
 export class SMSData {
@@ -68,6 +74,9 @@ export class SMSData {
     example: ['+2519xxxxxxxx', '+2517xxxxxxxx'],
   })
   recipients: string[]
+
+  @ApiProperty({ type: Boolean })
+  isFollowUp?: Boolean
 
   // TODO: restructure the Payload such that it contains bactchId, smsId, recipients and message in an optimized way
   // message: string
