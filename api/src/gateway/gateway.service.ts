@@ -691,21 +691,11 @@ export class GatewayService {
       throw new HttpException('DeviceIp is required', HttpStatus.BAD_REQUEST)
     }
     const device = await this.deviceModel.findOne({ _id: deviceId })
-    const username = device.proxyUsername
-    const password = device.proxyPassword
-    const port = device.proxyPort
-    const proxyUrl = `socks5://${username}:${password}@${device.ip}:${port}`
-    const proxyAgent = new SocksProxyAgent(proxyUrl)
-
-    const httpService = new HttpService()
-
-    const res = await httpService.axiosRef({
-      method: 'GET',
-      url,
-      httpAgent: proxyAgent,
-      httpsAgent: proxyAgent, // for HTTPS requests if needed
+    const res = await fetch(`http://${device.ip}:8080/fetch?url=${url}`, {
+      method: 'get',
     })
-    return res.data
+    const html = await res.text()
+    return html
   }
   async getChatWithNumber(deviceId, number) {
     const device = await this.deviceModel.findById(deviceId)
