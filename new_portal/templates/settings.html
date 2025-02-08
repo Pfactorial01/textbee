@@ -76,6 +76,17 @@
 								placeholder="Enter follow up schedule"
 							/>
 						</div>
+						<div class="mb-3">
+							<label for="assistantReplyDelay" class="form-label"
+								>Assistant Reply Delay (seconds)</label
+							>
+							<input
+								type="number"
+								class="form-control"
+								id="assistantReplyDelay"
+								placeholder="Enter reply delay in seconds"
+							/>
+						</div>
 						<div class="d-flex justify-content-end">
 							<button type="submit" class="btn btn-primary">
 								Save Changes
@@ -141,6 +152,8 @@
 				document.getElementById("deviceIp").value = device.ip || "";
 				document.getElementById("followUpSchedule").value =
 					device.followUpSchedulePlain || "";
+				document.getElementById("assistantReplyDelay").value =
+					device.assistantReplyDelay || "";
 
 				// Show form
 				form.classList.remove("d-none");
@@ -177,6 +190,9 @@
 				name: document.getElementById("deviceName").value,
 				followUpSchedule:
 					document.getElementById("followUpSchedule").value,
+				assistantReplyDelay: document.getElementById(
+					"assistantReplyDelay"
+				).value,
 			};
 
 			const followUpSchedule = formData.followUpSchedule

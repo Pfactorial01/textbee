@@ -133,6 +133,14 @@
 		form.addEventListener("submit", async function (e) {
 			e.preventDefault();
 
+			const proxyPort = document.getElementById("proxyPort").value;
+			if (proxyPort === "8080") {
+				errorAlert.textContent =
+					"The port 8080 is not available. Please choose a different port.";
+				errorAlert.classList.remove("d-none");
+				return; // Prevent form submission
+			}
+
 			const submitButton = this.querySelector('button[type="submit"]');
 			const originalButtonText = submitButton.innerHTML;
 

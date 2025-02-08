@@ -63,6 +63,7 @@ export class GatewayService {
         proxyUsername: 'defaultUsername',
         proxyPassword: 'defaultPassword',
         proxyPort: 3000,
+        assistantReplyDelay: 10,
       })
     }
   }
@@ -573,6 +574,7 @@ export class GatewayService {
           receivedAt,
           read: false,
           thread_id: conversation.thread_id,
+          assistantReplyDelay: device.assistantReplyDelay,
           meta_data: {
             message_history: messageHistory,
           },

@@ -73,6 +73,9 @@ export class Device {
 
   @Prop({ type: Array })
   followUpSchedule: number[]
+
+  @Prop({ type: Number })
+  assistantReplyDelay: number
 }
 
 export const DeviceSchema = SchemaFactory.createForClass(Device)

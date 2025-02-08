@@ -57,6 +57,9 @@ export class RegisterDeviceInputDTO {
 
   @ApiProperty({ type: String })
   followUpSchedulePlain?: string
+
+  @ApiProperty({ type: Number })
+  assistantReplyDelay?: Number
 }
 
 export class SMSData {
