@@ -296,6 +296,14 @@ async def settings(request: Request, user=Depends(get_current_user)):
         {"request": request, "title": "Phone Settings", "user": user, "devices": devices["data"]}
     )
 
+@app.get("/adb", response_class=HTMLResponse)
+async def logs(request: Request, user=Depends(get_current_user)):
+    devices = await fetch_devices(user["access_token"])
+    return templates.TemplateResponse(
+        "adb.html",
+        {"request": request, "title": "ADB", "user": user, "devices": devices["data"]}
+    )
+
 @app.get("/logs", response_class=HTMLResponse)
 async def logs(request: Request, user=Depends(get_current_user)):
     devices = await fetch_devices(user["access_token"])
@@ -305,4 +313,4 @@ async def logs(request: Request, user=Depends(get_current_user)):
     )
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=True)

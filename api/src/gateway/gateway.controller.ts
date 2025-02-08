@@ -17,6 +17,7 @@ import {
   ApiQuery,
   ApiResponse,
   ApiTags,
+  ApiProperty,
 } from '@nestjs/swagger'
 import { AuthGuard } from '../auth/guards/auth.guard'
 import {
@@ -29,6 +30,11 @@ import {
 import { GatewayService } from './gateway.service'
 import { CanModifyDevice } from './guards/can-modify-device.guard'
 import { Log } from './schemas/log.schema'
+
+export class AdbShellInputDTO {
+  @ApiProperty()
+  command: string
+}
 
 @ApiTags('gateway')
 @ApiBearerAuth()
@@ -236,6 +242,29 @@ export class GatewayController {
   @Get(['/get-follow-up-due-conversations'])
   async fetchConversationsDueForFollowUp() {
     const data = await this.gatewayService.fetchFollowUpDueConversations()
+    return { data }
+  }
+
+  @ApiOperation({ summary: 'Connect to device ADB' })
+  @ApiResponse({ status: 200 })
+  @Post(['/devices/:id/connect-adb'])
+  async connectToADB(@Param('id') deviceId: string, @Body() body) {
+    await this.gatewayService.connectToDeviceADB(deviceId, body)
+    return {}
+  }
+
+  @ApiOperation({ summary: 'Execute ADB shell command' })
+  @ApiResponse({ status: 200 })
+  @UseGuards(AuthGuard)
+  @Post(['/devices/:id/shell'])
+  async executeAdbShell(
+    @Param('id') deviceId: string,
+    @Body() input: AdbShellInputDTO,
+  ) {
+    const data = await this.gatewayService.executeAdbShell(
+      deviceId,
+      input.command,
+    )
     return { data }
   }
 }

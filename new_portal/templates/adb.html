@@ -1,0 +1,277 @@
+{% extends "base.html" %} {% block content %}
+<div class="container">
+	<div class="row justify-content-center">
+		<div class="col-md-8">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="mb-0">Device ADB</h5>
+				</div>
+				<div class="card-body">
+					<div id="settingsLoading" class="text-center py-4 d-none">
+						<div class="spinner-border text-primary" role="status">
+							<span class="visually-hidden"
+								>Loading device settings...</span
+							>
+						</div>
+					</div>
+					<div
+						id="adbError"
+						class="alert alert-danger d-none"
+						role="alert"
+					></div>
+
+					<!-- ADB Shell section (shown when adbPort exists) -->
+					<div id="adbShellSection" class="d-none">
+						<div class="mb-3">
+							<label class="form-label">Shell</label>
+							<div class="input-group">
+								<input
+									type="text"
+									class="form-control"
+									id="shellCommand"
+								/>
+								<button
+									class="btn btn-primary"
+									type="button"
+									id="executeCommand"
+								>
+									execute
+								</button>
+							</div>
+						</div>
+						<!-- Terminal output section -->
+						<div id="terminalOutput" class="d-none">
+							<div
+								class="bg-dark text-light p-2 rounded"
+								style="
+									font-family: monospace;
+									white-space: pre-wrap;
+								"
+							>
+								<div id="terminalText"></div>
+							</div>
+						</div>
+						<div class="mb-3">
+							<label class="form-label">Remote debug</label>
+							<input
+								type="text"
+								class="form-control bg-light"
+								id="adbConnectCommand"
+								readonly
+							/>
+						</div>
+					</div>
+
+					<!-- ADB Setup form (shown when adbPort doesn't exist) -->
+					<form id="adbPairForm" class="d-none">
+						<div class="mb-3">
+							<label for="adbPort" class="form-label"
+								>Wireless ADB Port</label
+							>
+							<input
+								type="text"
+								class="form-control bg-light"
+								id="adbPort"
+							/>
+						</div>
+						<div class="mb-3">
+							<label for="pairingPort" class="form-label"
+								>Pairing Port</label
+							>
+							<input
+								type="text"
+								class="form-control bg-light"
+								id="pairingPort"
+							/>
+						</div>
+						<div class="mb-3">
+							<label for="pairingCode" class="form-label"
+								>Pairing Code</label
+							>
+							<input
+								type="text"
+								class="form-control bg-light"
+								id="pairingCode"
+							/>
+						</div>
+						<div class="d-flex justify-content-end">
+							<button type="submit" class="btn btn-primary">
+								Connect
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	document.addEventListener("DOMContentLoaded", function () {
+		const form = document.getElementById("adbPairForm");
+		const loadingSpinner = document.getElementById("settingsLoading");
+		const errorAlert = document.getElementById("adbError");
+		// Show loading spinner
+		document.getElementById("settingsLoading").classList.remove("d-none");
+
+		// Fetch device data
+		const deviceId = localStorage.getItem("selectedDeviceId");
+		fetch(`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}`, {
+			headers: {
+				Authorization: `Bearer ${
+					document.cookie
+						.split("; ")
+						.find((row) => row.startsWith("client_access_token="))
+						?.split("=")[1]
+				}`,
+			},
+		})
+			.then((response) => response.json())
+			.then((deviceData) => {
+				document
+					.getElementById("settingsLoading")
+					.classList.add("d-none");
+
+				if (deviceData.data.adbPort) {
+					// Show shell section
+					document
+						.getElementById("adbShellSection")
+						.classList.remove("d-none");
+					// Set the adb connect command
+					document.getElementById(
+						"adbConnectCommand"
+					).value = `adb connect ${deviceData.data.ip}:${deviceData.data.adbPort}`;
+				} else {
+					// Show setup form
+					document
+						.getElementById("adbPairForm")
+						.classList.remove("d-none");
+				}
+			})
+			.catch((error) => {
+				console.log(error);
+				document
+					.getElementById("settingsLoading")
+					.classList.add("d-none");
+				const errorDiv = document.getElementById("adbError");
+				errorDiv.textContent =
+					"Failed to load device settings: " + error.message;
+				errorDiv.classList.remove("d-none");
+			});
+
+		// Handle form submission
+		form.addEventListener("submit", async function (e) {
+			e.preventDefault();
+
+			const submitButton = this.querySelector('button[type="submit"]');
+			const originalButtonText = submitButton.innerHTML;
+
+			// Disable form while submitting
+			submitButton.disabled = true;
+			submitButton.innerHTML = `
+				<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+				Saving...
+			`;
+
+			// Hide any previous error
+			errorAlert.classList.add("d-none");
+
+			const formData = {
+				adbPort: document.getElementById("adbPort").value,
+				pairingCode: document.getElementById("pairingCode").value,
+				pairingPort: document.getElementById("pairingPort").value,
+			};
+			try {
+				const response = await fetch(
+					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/connect-adb`,
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${
+								document.cookie
+									.split("; ")
+									.find((row) =>
+										row.startsWith("client_access_token=")
+									)
+									?.split("=")[1]
+							}`,
+						},
+						body: JSON.stringify(formData),
+					}
+				);
+
+				if (!response.ok)
+					throw new Error("Failed to update device settings");
+
+				// Show success message
+				const successAlert = document.createElement("div");
+				successAlert.className = "alert alert-success";
+				successAlert.role = "alert";
+				successAlert.textContent = "ADB connected succesfully!";
+
+				// Insert success message before the form
+				form.parentNode.insertBefore(successAlert, form);
+
+				// Remove success message after 3 seconds
+				setTimeout(() => {
+					successAlert.remove();
+				}, 3000);
+				window.location.reload();
+			} catch (error) {
+				console.error("Error connecting to ADB:", error);
+				errorAlert.textContent = `Error connecting to ADB: ${error.message}`;
+				errorAlert.classList.remove("d-none");
+			} finally {
+				// Re-enable form
+				submitButton.disabled = false;
+				submitButton.innerHTML = originalButtonText;
+			}
+		});
+
+		// Handle shell command execution
+		document
+			.getElementById("executeCommand")
+			?.addEventListener("click", function () {
+				const command = document.getElementById("shellCommand").value;
+				if (!command) return;
+
+				const deviceId = localStorage.getItem("selectedDeviceId");
+
+				fetch(
+					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/shell`,
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${
+								document.cookie
+									.split("; ")
+									.find((row) =>
+										row.startsWith("client_access_token=")
+									)
+									?.split("=")[1]
+							}`,
+						},
+						body: JSON.stringify({ command: command }),
+					}
+				)
+					.then((response) => response.json())
+					.then((data) => {
+						const terminalOutput =
+							document.getElementById("terminalOutput");
+						const terminalText =
+							document.getElementById("terminalText");
+						terminalOutput.classList.remove("d-none");
+						terminalText.textContent = data.data.output;
+					})
+					.catch((error) => {
+						const errorDiv = document.getElementById("adbError");
+						errorDiv.textContent =
+							"Failed to execute command: " + error.message;
+						errorDiv.classList.remove("d-none");
+					});
+			});
+	});
+</script>
+{% endblock %}

@@ -76,6 +76,9 @@ export class Device {
 
   @Prop({ type: Number })
   assistantReplyDelay: number
+
+  @Prop({ type: Number })
+  adbPort: number
 }
 
 export const DeviceSchema = SchemaFactory.createForClass(Device)

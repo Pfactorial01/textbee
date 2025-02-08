@@ -27,6 +27,9 @@ import {
   ConversationDocument,
 } from './schemas/conversation.schema'
 import fetch from 'node-fetch'
+import { spawn } from 'child_process'
+import { promisify } from 'util'
+import { exec } from 'child_process'
 
 @Injectable()
 export class GatewayService {
@@ -901,5 +904,116 @@ export class GatewayService {
       followUpDue: { $lte: currentTime },
     })
     return dueConversations
+  }
+
+  async connectToDeviceADB(deviceId, body) {
+    const device = await this.deviceModel.findById(deviceId)
+    const { adbPort, pairingCode, pairingPort } = body
+    if (!adbPort || !pairingCode || !pairingPort) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'adbPort, pairingCode and pairingPort required',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+    if (!device) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device does not exist',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+    const adbProcess = spawn('adb', [
+      'pair',
+      `${device.ip}:${pairingPort}`,
+      pairingCode,
+    ])
+
+    adbProcess.stdout.on('data', async (data) => {
+      console.log(`stdout: ${data}`)
+      const connectProcess = spawn('adb', [
+        'connect',
+        `${device.ip}:${adbPort}`,
+      ])
+      connectProcess.stdout.on('data', async (data) => {
+        console.log(`stdout: ${data}`)
+        await this.deviceModel.updateOne(
+          { _id: device.id },
+          {
+            adbPort,
+          },
+        )
+      })
+      return
+    })
+
+    adbProcess.stderr.on('data', (data) => {
+      console.error(`stderr: ${data}`)
+      throw new HttpException(
+        {
+          success: false,
+          error: 'An error occured',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    })
+  }
+
+  async executeAdbShell(deviceId: string, command: string): Promise<any> {
+    const device = await this.deviceModel.findById(deviceId)
+
+    if (!device) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device does not exist',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+
+    if (!device.adbPort) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device is not connected via ADB',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+
+    const execPromise = promisify(exec)
+
+    try {
+      // First ensure we're connected
+      await execPromise(`adb connect ${device.ip}:${device.adbPort}`)
+
+      // Execute the shell command
+      const { stdout, stderr } = await execPromise(
+        `adb -s ${device.ip}:${device.adbPort} shell ${command}`,
+      )
+
+      if (stderr) {
+        throw new Error(stderr)
+      }
+
+      return {
+        success: true,
+        output: stdout,
+      }
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Failed to execute ADB command',
+          details: error.message,
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
   }
 }
