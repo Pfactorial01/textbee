@@ -9,3 +9,5 @@ textbee_env
 new_portal_env
 
 __pycache__
+
+platform-tools

@@ -35,18 +35,23 @@
 									type="button"
 									id="executeCommand"
 								>
-									execute
+									<span class="normal-text">execute</span>
+									<span class="spinner d-none">
+										<span
+											class="spinner-border spinner-border-sm"
+											role="status"
+											aria-hidden="true"
+										></span>
+										<span class="ms-1">executing...</span>
+									</span>
 								</button>
 							</div>
 						</div>
 						<!-- Terminal output section -->
 						<div id="terminalOutput" class="d-none">
 							<div
-								class="bg-dark text-light p-2 rounded"
-								style="
-									font-family: monospace;
-									white-space: pre-wrap;
-								"
+								class="bg-dark text-light p-3 rounded"
+								style="font-family: monospace"
 							>
 								<div id="terminalText"></div>
 							</div>
@@ -220,7 +225,7 @@
 				window.location.reload();
 			} catch (error) {
 				console.error("Error connecting to ADB:", error);
-				errorAlert.textContent = `Error connecting to ADB: ${error.message}`;
+				errorAlert.textContent = `Error connecting to device ADB`;
 				errorAlert.classList.remove("d-none");
 			} finally {
 				// Re-enable form
@@ -237,6 +242,18 @@
 				if (!command) return;
 
 				const deviceId = localStorage.getItem("selectedDeviceId");
+				const executeButton = document.getElementById("executeCommand");
+				const normalText = executeButton.querySelector(".normal-text");
+				const spinner = executeButton.querySelector(".spinner");
+
+				// Show spinner and disable button
+				executeButton.disabled = true;
+				normalText.classList.add("d-none");
+				spinner.classList.remove("d-none");
+
+				// Hide any previous error
+				const errorDiv = document.getElementById("adbError");
+				errorDiv.classList.add("d-none");
 
 				fetch(
 					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/shell`,
@@ -263,13 +280,19 @@
 						const terminalText =
 							document.getElementById("terminalText");
 						terminalOutput.classList.remove("d-none");
-						terminalText.textContent = data.data.output;
+						terminalText.textContent =
+							data.data.output || "No output";
 					})
 					.catch((error) => {
-						const errorDiv = document.getElementById("adbError");
 						errorDiv.textContent =
 							"Failed to execute command: " + error.message;
 						errorDiv.classList.remove("d-none");
+					})
+					.finally(() => {
+						// Reset button state
+						executeButton.disabled = false;
+						normalText.classList.remove("d-none");
+						spinner.classList.add("d-none");
 					});
 			});
 	});

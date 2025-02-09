@@ -909,6 +909,7 @@ export class GatewayService {
   async connectToDeviceADB(deviceId, body) {
     const device = await this.deviceModel.findById(deviceId)
     const { adbPort, pairingCode, pairingPort } = body
+
     if (!adbPort || !pairingCode || !pairingPort) {
       throw new HttpException(
         {
@@ -918,6 +919,7 @@ export class GatewayService {
         HttpStatus.BAD_REQUEST,
       )
     }
+
     if (!device) {
       throw new HttpException(
         {
@@ -927,39 +929,142 @@ export class GatewayService {
         HttpStatus.BAD_REQUEST,
       )
     }
-    const adbProcess = spawn('adb', [
-      'pair',
-      `${device.ip}:${pairingPort}`,
-      pairingCode,
-    ])
 
-    adbProcess.stdout.on('data', async (data) => {
-      console.log(`stdout: ${data}`)
-      const connectProcess = spawn('adb', [
-        'connect',
-        `${device.ip}:${adbPort}`,
+    return new Promise((resolve, reject) => {
+      const adbProcess = spawn('adb', [
+        'pair',
+        `${device.ip}:${pairingPort}`,
+        pairingCode,
       ])
-      connectProcess.stdout.on('data', async (data) => {
-        console.log(`stdout: ${data}`)
-        await this.deviceModel.updateOne(
-          { _id: device.id },
-          {
-            adbPort,
-          },
+
+      let pairingOutput = ''
+      let pairingError = ''
+
+      adbProcess.stdout.on('data', (data) => {
+        pairingOutput += data.toString()
+      })
+
+      adbProcess.stderr.on('data', (data) => {
+        pairingError += data.toString()
+      })
+
+      adbProcess.on('error', (error) => {
+        reject(
+          new HttpException(
+            {
+              success: false,
+              error: 'Failed to start ADB process',
+              details: error.message,
+            },
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          ),
         )
       })
-      return
-    })
 
-    adbProcess.stderr.on('data', (data) => {
-      console.error(`stderr: ${data}`)
-      throw new HttpException(
-        {
-          success: false,
-          error: 'An error occured',
-        },
-        HttpStatus.BAD_REQUEST,
-      )
+      adbProcess.on('close', async (code) => {
+        if (code !== 0) {
+          reject(
+            new HttpException(
+              {
+                success: false,
+                error: 'ADB pairing failed',
+                details: pairingError || 'Unknown error occurred',
+                code,
+              },
+              HttpStatus.BAD_REQUEST,
+            ),
+          )
+          return
+        }
+
+        // After successful pairing, try to connect
+        const connectProcess = spawn('adb', [
+          'connect',
+          `${device.ip}:${adbPort}`,
+        ])
+
+        let connectOutput = ''
+        let connectError = ''
+
+        connectProcess.stdout.on('data', (data) => {
+          connectOutput += data.toString()
+        })
+
+        connectProcess.stderr.on('data', (data) => {
+          connectError += data.toString()
+        })
+
+        connectProcess.on('error', (error) => {
+          reject(
+            new HttpException(
+              {
+                success: false,
+                error: 'Failed to start ADB connect process',
+                details: error.message,
+              },
+              HttpStatus.INTERNAL_SERVER_ERROR,
+            ),
+          )
+        })
+
+        connectProcess.on('close', async (connectCode) => {
+          if (connectCode !== 0) {
+            reject(
+              new HttpException(
+                {
+                  success: false,
+                  error: 'ADB connection failed',
+                  details: connectError || 'Unknown error occurred',
+                  code: connectCode,
+                },
+                HttpStatus.BAD_REQUEST,
+              ),
+            )
+            return
+          }
+
+          try {
+            // Only update device if both pairing and connection were successful
+            await this.deviceModel.findByIdAndUpdate(
+              device.id,
+              { adbPort },
+              { new: true },
+            )
+
+            resolve({
+              success: true,
+              message: 'Device paired and connected successfully',
+              pairingOutput,
+              connectOutput,
+            })
+          } catch (error) {
+            reject(
+              new HttpException(
+                {
+                  success: false,
+                  error: 'Failed to update device settings',
+                  details: error.message,
+                },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+              ),
+            )
+          }
+        })
+      })
+
+      // Set a timeout for the entire operation
+      setTimeout(() => {
+        adbProcess.kill()
+        reject(
+          new HttpException(
+            {
+              success: false,
+              error: 'Operation timed out',
+            },
+            HttpStatus.REQUEST_TIMEOUT,
+          ),
+        )
+      }, 30000) // 30 second timeout
     })
   }
 

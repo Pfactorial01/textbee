@@ -1,13 +1,38 @@
-FROM node:18-alpine
+FROM ubuntu:20.04
+
+# Avoid prompts from apt
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Node.js 18.x and other dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y \
+    nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
 
+# Copy package files
 COPY package*.json ./
 
+# Install pnpm
 RUN npm i -g pnpm
 
+# Install dependencies
 RUN pnpm install
 
+# Copy platform-tools (ADB)
+COPY platform-tools /usr/local/platform-tools
+
+# Add platform-tools to PATH
+RUN echo 'export PATH=$PATH:/usr/local/platform-tools' >> ~/.bashrc \
+    && /bin/bash -c "source ~/.bashrc"
+
+# Add platform-tools to system-wide PATH
+ENV PATH="/usr/local/platform-tools:${PATH}"
+
+# Copy rest of the application
 COPY . .
 
 RUN pnpm run build
