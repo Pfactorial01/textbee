@@ -10,6 +10,7 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
+  HttpException,
 } from '@nestjs/common'
 import {
   ApiBearerAuth,
@@ -30,6 +31,7 @@ import {
 import { GatewayService } from './gateway.service'
 import { CanModifyDevice } from './guards/can-modify-device.guard'
 import { Log } from './schemas/log.schema'
+import { ScrcpyGateway } from './scrcpy.gateway'
 
 export class AdbShellInputDTO {
   @ApiProperty()
@@ -40,7 +42,10 @@ export class AdbShellInputDTO {
 @ApiBearerAuth()
 @Controller('gateway')
 export class GatewayController {
-  constructor(private readonly gatewayService: GatewayService) {}
+  constructor(
+    private readonly gatewayService: GatewayService,
+    private readonly scrcpyGateway: ScrcpyGateway,
+  ) {}
 
   @UseGuards(AuthGuard)
   @Get('/stats')
@@ -245,12 +250,21 @@ export class GatewayController {
     return { data }
   }
 
+  @ApiOperation({ summary: 'Pair to device ADB' })
+  @ApiResponse({ status: 200 })
+  @Post(['/devices/:id/pair-adb'])
+  async pairToADB(@Param('id') deviceId: string, @Body() body) {
+    await this.gatewayService.pairToDeviceADB(deviceId, body)
+    return {}
+  }
+
   @ApiOperation({ summary: 'Connect to device ADB' })
   @ApiResponse({ status: 200 })
-  @Post(['/devices/:id/connect-adb'])
-  async connectToADB(@Param('id') deviceId: string, @Body() body) {
-    await this.gatewayService.connectToDeviceADB(deviceId, body)
-    return {}
+  @Get(['/devices/:id/connect-adb'])
+  async connectToADB(@Param('id') deviceId: string) {
+    // @ts-ignore
+    const { data } = await this.gatewayService.connectToDeviceADB(deviceId)
+    return data
   }
 
   @ApiOperation({ summary: 'Execute ADB shell command' })
@@ -266,5 +280,27 @@ export class GatewayController {
       input.command,
     )
     return { data }
+  }
+
+  @ApiOperation({ summary: 'Start device screen mirroring' })
+  @ApiResponse({ status: 200 })
+  @UseGuards(AuthGuard)
+  @Post(['/devices/:id/mirror'])
+  async startMirroring(@Param('id') deviceId: string) {
+    const device = await this.gatewayService.getDeviceById(deviceId)
+    if (!device?.adbPort) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device is not connected via ADB',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+    return {
+      success: true,
+      wsUrl: 'http://100.77.145.14:3005',
+      deviceId: `${device.ip}:${device.adbPort}`,
+    }
   }
 }

@@ -11,11 +11,13 @@ sudo docker rmi api || true
 sudo docker build -t api api/.
 
 # Run new container
-sudo docker run -d --name  api_cont --privileged --network host \
+sudo docker run -d --name api_cont \
+  -v /home/local/textbee/api:/usr/src/app \
+  -v /usr/src/app/node_modules \
+  --privileged --network host \
   -e MONGO_URI=mongodb://172.17.0.3:27017/ \
-    api
-  # -p 3005:3005 \
-  # -p 5037:5037 \
+  -e DISPLAY=:99 \
+  api
 
 
 # Stop and remove existing container
@@ -28,4 +30,4 @@ sudo docker rmi new_portal || true
 # Build new image
 sudo docker build -t new_portal new_portal/.
 
-sudo docker run -d --name new_portal_cont -p 8000:8000 new_portal
+sudo docker run -d --name new_portal_cont -v /home/local/textbee/new_portal:/code1 -p 8000:8000 new_portal

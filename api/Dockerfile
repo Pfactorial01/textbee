@@ -6,10 +6,36 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install Node.js 18.x and other dependencies
 RUN apt-get update && apt-get install -y \
     curl \
+    ffmpeg \
+    gcc \
+    git \
+    libsdl2-2.0-0 \
+    make \
+    meson \
+    ninja-build \
+    pkg-config \
+    libavcodec-dev \
+    libavdevice-dev \
+    libavformat-dev \
+    libavutil-dev \
+    libsdl2-dev \
+    libswresample-dev \
+    libusb-1.0-0 \
+    libusb-1.0-0-dev \
+    wget \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y \
     nodejs \
+    xvfb \
     && rm -rf /var/lib/apt/lists/*
+
+# Install scrcpy
+RUN git clone https://github.com/Genymobile/scrcpy \
+    && cd scrcpy \
+    && sed -i 's/sudo //g' install_release.sh \ 
+    && ./install_release.sh \
+    && cd .. \
+    && rm -rf scrcpy
 
 WORKDIR /usr/src/app
 
@@ -51,4 +77,4 @@ ENV FIREBASE_CLIENT_C509_CERT_URL="https://www.googleapis.com/robot/v1/metadata/
 
 ENV PROXY_USERNAME="xyz"
 ENV PROXY_PASSWORD="abc"
-CMD [ "pnpm", "run", "start" ]
+CMD [ "pnpm", "run", "start:dev" ]

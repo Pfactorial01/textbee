@@ -28,8 +28,11 @@
     "@nestjs/mongoose": "^10.0.10",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.5",
+    "@nestjs/platform-socket.io": "^11.0.8",
     "@nestjs/swagger": "^7.4.2",
     "@nestjs/throttler": "^6.2.1",
+    "@nestjs/websockets": "^11.0.8",
+    "@types/ws": "^8.5.14",
     "axios": "^1.7.7",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",
@@ -43,9 +46,11 @@
     "reflect-metadata": "^0.2.2",
     "rimraf": "^6.0.1",
     "rxjs": "^7.8.1",
+    "socket.io": "^4.8.1",
     "socks-proxy-agent": "^8.0.5",
     "swagger-ui-express": "^5.0.1",
-    "uuid": "^10.0.0"
+    "uuid": "^10.0.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.5",

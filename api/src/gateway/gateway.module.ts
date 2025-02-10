@@ -9,6 +9,7 @@ import { AuthModule } from '../auth/auth.module'
 import { UsersModule } from '../users/users.module'
 import { SMS, SMSSchema } from './schemas/sms.schema'
 import { SMSBatch, SMSBatchSchema } from './schemas/sms-batch.schema'
+import { ScrcpyGateway } from './scrcpy.gateway'
 
 @Module({
   imports: [
@@ -38,7 +39,7 @@ import { SMSBatch, SMSBatchSchema } from './schemas/sms-batch.schema'
     UsersModule,
   ],
   controllers: [GatewayController],
-  providers: [GatewayService],
+  providers: [GatewayService, ScrcpyGateway],
   exports: [MongooseModule, GatewayService],
 })
 export class GatewayModule {}

@@ -906,7 +906,7 @@ export class GatewayService {
     return dueConversations
   }
 
-  async connectToDeviceADB(deviceId, body) {
+  async pairToDeviceADB(deviceId, body) {
     const device = await this.deviceModel.findById(deviceId)
     const { adbPort, pairingCode, pairingPort } = body
 
@@ -1065,6 +1065,100 @@ export class GatewayService {
           ),
         )
       }, 30000) // 30 second timeout
+    })
+  }
+
+  async connectToDeviceADB(deviceId) {
+    const device = await this.deviceModel.findById(deviceId)
+    if (!device) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device does not exist',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+
+    return new Promise((resolve, reject) => {
+      const connectProcess = spawn('adb', [
+        'connect',
+        `${device.ip}:${device.adbPort}`,
+      ])
+
+      let connectOutput = ''
+      let connectError = ''
+
+      connectProcess.stdout.on('data', (data) => {
+        connectOutput += data.toString()
+      })
+
+      connectProcess.stderr.on('data', (data) => {
+        connectError += data.toString()
+      })
+
+      connectProcess.on('error', (error) => {
+        reject(
+          new HttpException(
+            {
+              success: false,
+              error: 'Failed to start ADB connect process',
+              details: error.message,
+            },
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          ),
+        )
+      })
+
+      connectProcess.on('close', async (connectCode) => {
+        if (connectCode === null || connectCode !== 0) {
+          reject(
+            new HttpException(
+              {
+                success: false,
+                error: 'ADB connection failed',
+                details: connectError || 'Unknown error occurred',
+                code: connectCode,
+              },
+              HttpStatus.BAD_REQUEST,
+            ),
+          )
+          return
+        }
+        if (connectOutput.startsWith('failed to connect to')) {
+          reject(
+            new HttpException(
+              {
+                success: false,
+                error: 'ADB connection failed',
+                details: connectError || 'Unknown error occurred',
+                code: connectCode,
+              },
+              HttpStatus.BAD_REQUEST,
+            ),
+          )
+        } else {
+          resolve({
+            success: true,
+            message: 'Device connected successfully',
+            connectOutput,
+            data: { ip: device.ip, adbPort: device.adbPort },
+          })
+        }
+      })
+      // Set a timeout for the entire operation
+      setTimeout(() => {
+        connectProcess.kill()
+        reject(
+          new HttpException(
+            {
+              success: false,
+              error: 'Operation timed out',
+            },
+            HttpStatus.REQUEST_TIMEOUT,
+          ),
+        )
+      }, 2000) // 15 second timeout
     })
   }
 

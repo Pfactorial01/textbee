@@ -1,7 +1,40 @@
 {% extends "base.html" %} {% block content %}
-<div class="container">
-	<div class="row justify-content-center">
-		<div class="col-md-8">
+<div class="container-fluid">
+	<div class="row">
+		<!-- Screen Mirroring Section -->
+		<div class="col-md-6" id="screenMirrorSection">
+			<div class="card">
+				<div
+					class="card-header d-flex justify-content-between align-items-center"
+				>
+					<h5 class="mb-0">Screen Mirror</h5>
+					<div>
+						<!-- <button class="btn btn-primary btn-sm" id="startMirror">
+							Start
+						</button>
+						<button class="btn btn-danger btn-sm" id="stopMirror">
+							Stop
+						</button> -->
+					</div>
+				</div>
+				<div class="card-body">
+					<div id="mirrorStatus" class="alert alert-info d-none">
+						Connecting to device...
+					</div>
+					<div
+						id="mirrorError"
+						class="alert alert-danger d-none"
+					></div>
+					<canvas
+						id="screenMirror"
+						style="width: 100%; height: auto"
+					></canvas>
+				</div>
+			</div>
+		</div>
+
+		<!-- ADB Control Section -->
+		<div class="col-md-6">
 			<div class="card">
 				<div class="card-header">
 					<h5 class="mb-0">Device ADB</h5>
@@ -111,6 +144,9 @@
 	</div>
 </div>
 
+<!-- Add Socket.IO client library -->
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
 <script>
 	document.addEventListener("DOMContentLoaded", function () {
 		const form = document.getElementById("adbPairForm");
@@ -121,23 +157,27 @@
 
 		// Fetch device data
 		const deviceId = localStorage.getItem("selectedDeviceId");
-		fetch(`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}`, {
-			headers: {
-				Authorization: `Bearer ${
-					document.cookie
-						.split("; ")
-						.find((row) => row.startsWith("client_access_token="))
-						?.split("=")[1]
-				}`,
-			},
-		})
+		fetch(
+			`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/connect-adb`,
+			{
+				headers: {
+					Authorization: `Bearer ${
+						document.cookie
+							.split("; ")
+							.find((row) =>
+								row.startsWith("client_access_token=")
+							)
+							?.split("=")[1]
+					}`,
+				},
+			}
+		)
 			.then((response) => response.json())
 			.then((deviceData) => {
 				document
 					.getElementById("settingsLoading")
 					.classList.add("d-none");
-
-				if (deviceData.data.adbPort) {
+				if (deviceData?.ip) {
 					// Show shell section
 					document
 						.getElementById("adbShellSection")
@@ -145,23 +185,25 @@
 					// Set the adb connect command
 					document.getElementById(
 						"adbConnectCommand"
-					).value = `adb connect ${deviceData.data.ip}:${deviceData.data.adbPort}`;
+					).value = `adb connect ${deviceData.ip}:${deviceData.adbPort}`;
+
+					// Start mirroring immediately after successful ADB connection
+					startMirroring();
 				} else {
-					// Show setup form
 					document
 						.getElementById("adbPairForm")
 						.classList.remove("d-none");
 				}
 			})
 			.catch((error) => {
-				console.log(error);
-				document
-					.getElementById("settingsLoading")
-					.classList.add("d-none");
+				console.error("Error fetching device data:", error); // Log the full error object
 				const errorDiv = document.getElementById("adbError");
 				errorDiv.textContent =
 					"Failed to load device settings: " + error.message;
 				errorDiv.classList.remove("d-none");
+				document
+					.getElementById("adbPairForm")
+					.classList.remove("d-none");
 			});
 
 		// Handle form submission
@@ -188,7 +230,7 @@
 			};
 			try {
 				const response = await fetch(
-					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/connect-adb`,
+					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/pair-adb`,
 					{
 						method: "POST",
 						headers: {
@@ -222,7 +264,12 @@
 				setTimeout(() => {
 					successAlert.remove();
 				}, 3000);
-				window.location.reload();
+				document.getElementById("adbPairForm").classList.add("d-none");
+				document
+					.getElementById("adbShellSection")
+					.classList.remove("d-none");
+				// Start mirroring immediately after successful ADB connection
+				startMirroring();
 			} catch (error) {
 				console.error("Error connecting to ADB:", error);
 				errorAlert.textContent = `Error connecting to device ADB`;
@@ -295,6 +342,542 @@
 						spinner.classList.add("d-none");
 					});
 			});
+
+		// Screen Mirroring Implementation
+		const startMirrorBtn = document.getElementById("startMirror");
+		const stopMirrorBtn = document.getElementById("stopMirror");
+		const mirrorStatus = document.getElementById("mirrorStatus");
+		const mirrorError = document.getElementById("mirrorError");
+		const canvas = document.getElementById("screenMirror");
+		const ctx = canvas.getContext("2d");
+
+		let socket = null;
+		let mediaSource = null;
+		let sourceBuffer = null;
+		let video = null;
+		let queue = [];
+		let isBufferUpdating = false;
+
+		// Add these variables for tracking mouse movement
+		let isMouseDown = false;
+		let startMouseX = 0;
+		let startMouseY = 0;
+		let lastMouseX = 0;
+		let lastMouseY = 0;
+		let swipeStartTime = 0;
+		let hasMovedSignificantly = false; // Track if movement qualifies as a swipe
+
+		const MOUSE_CLICK_THRESHOLD = 5; // pixels; if movement is below this, treat as a click
+		const SWIPE_THRESHOLD = 10; // pixels; minimum movement to qualify as a swipe
+		const SWIPE_TIME_THRESHOLD = 300; // ms; maximum time for a click vs swipe detection
+		const SWIPE_VELOCITY_THRESHOLD = 0.2; // pixels/ms; minimum velocity to qualify as a swipe
+
+		async function startMirroring() {
+			const deviceId = localStorage.getItem("selectedDeviceId");
+			try {
+				// Request to start mirroring
+				const response = await fetch(
+					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/mirror`,
+					{
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${
+								document.cookie
+									.split("; ")
+									.find((row) =>
+										row.startsWith("client_access_token=")
+									)
+									?.split("=")[1]
+							}`,
+						},
+					}
+				);
+
+				const data = await response.json();
+				if (!data.success) {
+					throw new Error(data.error || "Failed to start mirroring");
+				}
+
+				// Show status
+				mirrorStatus.textContent = "Connecting to device...";
+				mirrorStatus.classList.remove("d-none");
+				mirrorError.classList.add("d-none");
+
+				// Initialize video element
+
+				video = document.createElement("video");
+				video.style.width = "100%";
+				video.style.height = "80vh"; // Set height to be the height of the browser screen
+				video.autoplay = true;
+				video.playsInline = true;
+				video.muted = true;
+				video.style.transform = "translateZ(0)";
+				video.style.backfaceVisibility = "hidden";
+				video.style.perspective = "1000px";
+				canvas.parentNode.replaceChild(video, canvas);
+
+				// Initialize MediaSource with longer timeout
+				mediaSource = new MediaSource();
+				video.src = URL.createObjectURL(mediaSource);
+
+				console.log(
+					"Video element created and MediaSource initialized"
+				);
+
+				// Handle MediaSource open event
+				await new Promise((resolve, reject) => {
+					let timeoutId = setTimeout(() => {
+						reject(new Error("MediaSource open timeout"));
+					}, 10000);
+
+					mediaSource.addEventListener(
+						"sourceopen",
+						() => {
+							clearTimeout(timeoutId);
+							try {
+								console.log(
+									"MediaSource opened, adding SourceBuffer"
+								);
+								sourceBuffer = mediaSource.addSourceBuffer(
+									'video/mp4; codecs="avc1.42E01E"'
+								);
+								sourceBuffer.mode = "segments";
+								sourceBuffer.addEventListener(
+									"updateend",
+									() => {
+										console.log(
+											"SourceBuffer updated, queue length:",
+											queue.length
+										);
+										processQueue();
+									}
+								);
+								resolve();
+							} catch (error) {
+								console.error(
+									"Error adding SourceBuffer:",
+									error
+								);
+								reject(error);
+							}
+						},
+						{ once: true }
+					);
+				});
+
+				// Connect to WebSocket
+				socket = io(data.wsUrl);
+
+				socket.on("connect", () => {
+					console.log("Socket connected");
+					mirrorStatus.textContent = "Connected. Starting stream...";
+					socket.emit("start_stream", { deviceId: data.deviceId });
+				});
+
+				socket.on("frame", (data) => {
+					try {
+						console.log("Received frame, size:", data.length);
+						appendToSourceBuffer(data);
+						mirrorStatus.classList.add("d-none");
+
+						// Ensure video is playing
+						if (video.paused) {
+							console.log("Starting video playback");
+							video.play().catch(console.error);
+						}
+					} catch (error) {
+						console.error("Error handling frame:", error);
+					}
+				});
+
+				socket.on("error", (error) => {
+					console.error("Socket error:", error);
+					mirrorError.textContent = error.message;
+					mirrorError.classList.remove("d-none");
+					mirrorStatus.classList.add("d-none");
+				});
+
+				socket.on("disconnect", () => {
+					console.log("Socket disconnected");
+					mirrorStatus.textContent = "Connection closed";
+					mirrorStatus.classList.remove("d-none");
+				});
+
+				// Add after video element initialization
+
+				// ===== Global Variables & Thresholds =====
+
+				// For mouse events
+				let isMouseDown = false;
+				let startMouseX = 0;
+				let startMouseY = 0;
+				let lastMouseX = 0;
+				let lastMouseY = 0;
+				let swipeStartTime = 0;
+				let hasMovedSignificantly = false; // Track if movement qualifies as a swipe
+
+				const MOUSE_CLICK_THRESHOLD = 5; // pixels; if movement is below this, treat as a click
+				const SWIPE_THRESHOLD = 10; // pixels; minimum movement to qualify as a swipe
+				const SWIPE_TIME_THRESHOLD = 300; // ms; maximum time for a click vs swipe detection
+				const SWIPE_VELOCITY_THRESHOLD = 0.2; // pixels/ms; minimum velocity to qualify as a swipe
+
+				// ===== Event Listeners =====
+
+				// NOTE: Removed the click listener because it may fire even after a swipe
+				// Use only the following event listeners for correct touch and swipe handling:
+
+				// Mouse events
+				video.addEventListener("mousedown", handleMouseDown);
+				video.addEventListener("mousemove", handleMouseMove);
+				video.addEventListener("mouseup", handleMouseUp);
+				video.addEventListener("mouseleave", handleMouseUp); // in case pointer leaves before mouseup
+
+				// Touch events
+				video.addEventListener("touchstart", handleTouchStart);
+				video.addEventListener("touchmove", handleTouchMove);
+				video.addEventListener("touchend", handleTouchEnd);
+
+				// ===== Helper Function =====
+
+				/**
+				 * handleTap
+				 * This function calculates the adjusted tap coordinates and emits a "touch" event.
+				 * It is called only if the interaction did not move significantly.
+				 *
+				 * @param {number} clientX - The client X coordinate of the tap.
+				 * @param {number} clientY - The client Y coordinate of the tap.
+				 */
+				function handleTap(clientX, clientY) {
+					const rect = video.getBoundingClientRect();
+					const videoWidth = 270; // Actual video content width
+					const videoHeight = 600; // Actual video content height
+
+					// Calculate scaling and centering offsets.
+					const scale = Math.min(
+						rect.width / videoWidth,
+						rect.height / videoHeight
+					);
+					const scaledWidth = videoWidth * scale;
+					const scaledHeight = videoHeight * scale;
+					const offsetX = (rect.width - scaledWidth) / 2;
+					const offsetY = (rect.height - scaledHeight) / 2;
+
+					// Adjust the coordinates from the event.
+					const adjustedX = (clientX - rect.left - offsetX) / scale;
+					const adjustedY = (clientY - rect.top - offsetY) / scale;
+
+					// Only emit if the tap is within the video content area.
+					if (
+						adjustedX >= 0 &&
+						adjustedX <= videoWidth &&
+						adjustedY >= 0 &&
+						adjustedY <= videoHeight
+					) {
+						socket.emit("input", {
+							deviceId: data.deviceId,
+							type: "touch", // this indicates a tap/click
+							x: adjustedX,
+							y: adjustedY,
+						});
+					}
+				}
+
+				// ===== Mouse Event Handlers =====
+
+				function handleMouseDown(event) {
+					if (!socket?.connected) return;
+					event.preventDefault();
+
+					isMouseDown = true;
+					hasMovedSignificantly = false;
+					startMouseX = event.clientX;
+					startMouseY = event.clientY;
+					lastMouseX = event.clientX;
+					lastMouseY = event.clientY;
+					swipeStartTime = Date.now();
+				}
+
+				function handleMouseMove(event) {
+					if (!socket?.connected || !isMouseDown) return;
+					event.preventDefault();
+
+					const currentTime = Date.now();
+					const deltaTime = currentTime - swipeStartTime;
+					const deltaX = event.clientX - lastMouseX;
+					const deltaY = event.clientY - lastMouseY;
+					const totalDeltaX = event.clientX - startMouseX;
+					const totalDeltaY = event.clientY - startMouseY;
+
+					// Calculate velocity of movement
+					const velocity =
+						Math.sqrt(deltaX * deltaX + deltaY * deltaY) /
+						deltaTime;
+
+					// Check if movement qualifies as a swipe
+					if (
+						Math.abs(totalDeltaX) > SWIPE_THRESHOLD ||
+						Math.abs(totalDeltaY) > SWIPE_THRESHOLD ||
+						velocity > SWIPE_VELOCITY_THRESHOLD
+					) {
+						hasMovedSignificantly = true;
+
+						const rect = video.getBoundingClientRect();
+						const videoWidth = 270;
+						const videoHeight = 600;
+
+						// Calculate scaling and centering offsets
+						const scale = Math.min(
+							rect.width / videoWidth,
+							rect.height / videoHeight
+						);
+						const scaledWidth = videoWidth * scale;
+						const scaledHeight = videoHeight * scale;
+						const offsetX = (rect.width - scaledWidth) / 2;
+						const offsetY = (rect.height - scaledHeight) / 2;
+
+						// Calculate adjusted coordinates
+						const adjustedX =
+							(event.clientX - rect.left - offsetX) / scale;
+						const adjustedY =
+							(event.clientY - rect.top - offsetY) / scale;
+
+						// Only emit if within video content area
+						if (
+							adjustedX >= 0 &&
+							adjustedX <= videoWidth &&
+							adjustedY >= 0 &&
+							adjustedY <= videoHeight
+						) {
+							socket.emit("input", {
+								deviceId: data.deviceId,
+								type: "scroll",
+								x: adjustedX,
+								y: adjustedY,
+								dx: -deltaX, // Invert delta for natural scrolling
+								dy: -deltaY,
+							});
+						}
+					}
+
+					// Update last position
+					lastMouseX = event.clientX;
+					lastMouseY = event.clientY;
+				}
+
+				function handleMouseUp(event) {
+					if (!socket?.connected || !isMouseDown) return;
+					event.preventDefault();
+
+					const deltaTime = Date.now() - swipeStartTime;
+					const totalMoveX = Math.abs(event.clientX - startMouseX);
+					const totalMoveY = Math.abs(event.clientY - startMouseY);
+
+					// Only trigger click if:
+					// 1. Movement was minimal
+					// 2. Duration was short
+					// 3. No significant movement occurred during the interaction
+					if (
+						!hasMovedSignificantly &&
+						totalMoveX < MOUSE_CLICK_THRESHOLD &&
+						totalMoveY < MOUSE_CLICK_THRESHOLD &&
+						deltaTime < SWIPE_TIME_THRESHOLD
+					) {
+						handleTap(startMouseX, startMouseY); // Use start position for more accurate taps
+					}
+
+					// Reset state
+					isMouseDown = false;
+					hasMovedSignificantly = false;
+				}
+
+				// ===== Touch Event Handlers =====
+
+				function handleTouchStart(event) {
+					if (!socket?.connected) return;
+					if (event.touches.length > 0) {
+						const touch = event.touches[0];
+						startTouchX = touch.clientX;
+						startTouchY = touch.clientY;
+						lastTouchY = touch.clientY;
+						touchStartTime = Date.now();
+					}
+				}
+
+				function handleTouchMove(event) {
+					if (!socket?.connected) return;
+					event.preventDefault();
+					if (event.touches.length > 0) {
+						const touch = event.touches[0];
+						const deltaY = lastTouchY - touch.clientY;
+						const deltaTime = Date.now() - touchStartTime;
+
+						// Only treat as a swipe if the movement is significant.
+						if (
+							Math.abs(deltaY) > TOUCH_CLICK_THRESHOLD &&
+							deltaTime > 50
+						) {
+							const rect = video.getBoundingClientRect();
+							const videoWidth = 270;
+							const videoHeight = 600;
+
+							// Calculate scaling and centering offsets.
+							const scale = Math.min(
+								rect.width / videoWidth,
+								rect.height / videoHeight
+							);
+							const scaledWidth = videoWidth * scale;
+							const scaledHeight = videoHeight * scale;
+							const offsetX = (rect.width - scaledWidth) / 2;
+							const offsetY = (rect.height - scaledHeight) / 2;
+
+							const touchX = touch.clientX;
+							const touchY = touch.clientY;
+							const adjustedX =
+								(touchX - rect.left - offsetX) / scale;
+							const adjustedY =
+								(touchY - rect.top - offsetY) / scale;
+
+							if (
+								adjustedX >= 0 &&
+								adjustedX <= videoWidth &&
+								adjustedY >= 0 &&
+								adjustedY <= videoHeight
+							) {
+								socket.emit("input", {
+									deviceId: data.deviceId,
+									type: "scroll", // swipe/scroll event
+									x: adjustedX,
+									y: adjustedY,
+									dy: deltaY,
+								});
+							}
+
+							// Update for continuous swipe detection.
+							lastTouchY = touch.clientY;
+							touchStartTime = Date.now();
+						}
+					}
+				}
+
+				function handleTouchEnd(event) {
+					if (!socket?.connected) return;
+					// When touch ends, check if the total movement was minimal. If so, treat it as a tap.
+					if (event.changedTouches.length > 0) {
+						const touch = event.changedTouches[0];
+						const moveX = Math.abs(touch.clientX - startTouchX);
+						const moveY = Math.abs(touch.clientY - startTouchY);
+						if (
+							moveX < TOUCH_CLICK_THRESHOLD &&
+							moveY < TOUCH_CLICK_THRESHOLD
+						) {
+							handleTap(touch.clientX, touch.clientY);
+						}
+					}
+				}
+			} catch (error) {
+				console.error("Mirroring error:", error);
+				mirrorError.textContent = error.message;
+				mirrorError.classList.remove("d-none");
+				mirrorStatus.classList.add("d-none");
+			}
+		}
+
+		function appendToSourceBuffer(data) {
+			if (
+				!sourceBuffer ||
+				!mediaSource ||
+				mediaSource.readyState !== "open"
+			) {
+				console.warn("MediaSource not ready, queuing data");
+				queue.push(data);
+				return;
+			}
+
+			if (sourceBuffer.updating) {
+				queue.push(data);
+				return;
+			}
+
+			try {
+				if (queue.length > 0) {
+					const buffer = queue.shift();
+					sourceBuffer.appendBuffer(buffer);
+				} else {
+					sourceBuffer.appendBuffer(data);
+				}
+			} catch (error) {
+				console.error("Error appending buffer:", error);
+				if (error.name === "QuotaExceededError") {
+					// Remove older data from the buffer
+					if (sourceBuffer.buffered.length > 0) {
+						const start = sourceBuffer.buffered.start(0);
+						const end = sourceBuffer.buffered.end(0);
+						const duration = end - start;
+						if (duration > 2) {
+							sourceBuffer.remove(start, end - 1);
+						}
+					}
+				}
+			}
+		}
+
+		function processQueue() {
+			if (queue.length === 0 || !sourceBuffer || sourceBuffer.updating) {
+				return;
+			}
+
+			try {
+				const data = queue.shift();
+				sourceBuffer.appendBuffer(data);
+			} catch (error) {
+				console.error("Error processing queue:", error);
+				if (error.name === "QuotaExceededError") {
+					const removeSize = sourceBuffer.buffered.length > 2 ? 2 : 1;
+					sourceBuffer.remove(
+						0,
+						sourceBuffer.buffered.start(removeSize)
+					);
+				}
+			}
+		}
+
+		function stopMirroring() {
+			const deviceId = localStorage.getItem("selectedDeviceId");
+
+			if (socket) {
+				socket.disconnect();
+			}
+
+			if (mediaSource && mediaSource.readyState === "open") {
+				try {
+					if (sourceBuffer) {
+						sourceBuffer.removeEventListener(
+							"updateend",
+							processQueue
+						);
+						mediaSource.removeSourceBuffer(sourceBuffer);
+					}
+					mediaSource.endOfStream();
+				} catch (e) {
+					console.error("Error cleaning up MediaSource:", e);
+				}
+			}
+
+			// Reset variables
+			mediaSource = null;
+			sourceBuffer = null;
+			queue = [];
+			isBufferUpdating = false;
+
+			// Restore canvas
+			if (video && video.parentNode) {
+				video.parentNode.replaceChild(canvas, video);
+			}
+			video = null;
+		}
+
+		// Clean up on page unload (optional)
+		// window.addEventListener("beforeunload", stopMirroring);
 	});
 </script>
 {% endblock %}
