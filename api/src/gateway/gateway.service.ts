@@ -1215,4 +1215,80 @@ export class GatewayService {
       )
     }
   }
+
+  async deleteDeviceMessages(
+    deviceId: string,
+    body: { messageIds: string[] },
+  ): Promise<any> {
+    const device = await this.deviceModel.findById(deviceId)
+
+    if (!device) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device does not exist',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+
+    const { messageIds } = body
+
+    if (!Array.isArray(messageIds) || messageIds.length === 0) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Invalid messageIds',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+
+    await this.smsModel.deleteMany({
+      _id: { $in: messageIds },
+      device: device._id,
+    })
+
+    return {
+      success: true,
+      message: 'Messages deleted successfully',
+    }
+  }
+
+  async deleteDeviceConversation(
+    deviceId: string,
+    body: { contactId: string },
+  ): Promise<any> {
+    const device = await this.deviceModel.findById(deviceId)
+
+    if (!device) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device does not exist',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+
+    const { contactId } = body
+
+    if (!contactId) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Invalid contactId',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+    await this.smsModel.deleteMany({
+      $or: [{ sender: contactId }, { recipient: contactId }],
+      device: device._id,
+    })
+    return {
+      success: true,
+      message: 'Conversations deleted successfully',
+    }
+  }
 }

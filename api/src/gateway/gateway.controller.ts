@@ -303,4 +303,23 @@ export class GatewayController {
       deviceId: `${device.ip}:${device.adbPort}`,
     }
   }
+
+  @ApiOperation({ summary: 'Delete messages' })
+  @ApiResponse({ status: 200 })
+  @Post(['/devices/:id/delete-messages'])
+  async deleteMessages(@Param('id') deviceId: string, @Body() body) {
+    const data = await this.gatewayService.deleteDeviceMessages(deviceId, body)
+    return data
+  }
+
+  @ApiOperation({ summary: 'Delete conversation' })
+  @ApiResponse({ status: 200 })
+  @Post(['/devices/:id/delete-conversation'])
+  async deleteConversation(@Param('id') deviceId: string, @Body() body) {
+    const data = await this.gatewayService.deleteDeviceConversation(
+      deviceId,
+      body,
+    )
+    return data
+  }
 }

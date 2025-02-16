@@ -7,16 +7,28 @@
 				<div
 					class="card-header bg-primary text-white d-flex align-items-center"
 				>
-					<div class="chat-contact-info">
-						<h5 class="mb-0" id="currentChatContact">
-							Select a contact
-						</h5>
-						<small
-							class="text-white-50"
-							id="currentChatStatus"
-						></small>
+					<div
+						class="chat-contact-info d-flex justify-content-between w-100"
+						id="contactBanner"
+					>
+						<div>
+							<h5 class="mb-0" id="currentChatContact">
+								Select a contact
+							</h5>
+							<small
+								class="text-white-50"
+								id="currentChatStatus"
+							></small>
+						</div>
+						<!-- New Delete Icon (hidden by default) -->
+						<i
+							class="bi bi-trash"
+							id="deleteIcon"
+							style="display: none"
+						></i>
 					</div>
 				</div>
+
 				<div class="card-body chat-messages" id="chatMessages">
 					<div
 						class="text-center text-muted mt-5"
