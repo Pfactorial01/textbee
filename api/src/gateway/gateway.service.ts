@@ -687,7 +687,7 @@ export class GatewayService {
     Logger.log('Proxy alive and receiving requests')
     return
   }
-  async scrapeWebsiteThroughDevice(input) {
+  async scrapeWebsiteThroughDeviceWebview(input) {
     const { deviceId, url } = input
     if (!url) {
       throw new HttpException('Website URL is required', HttpStatus.BAD_REQUEST)
@@ -1290,5 +1290,31 @@ export class GatewayService {
       success: true,
       message: 'Conversations deleted successfully',
     }
+  }
+
+  async scrapeWebsiteThroughDeviceProxy(input) {
+    const { deviceId, url } = input
+    if (!url) {
+      throw new HttpException('Website URL is required', HttpStatus.BAD_REQUEST)
+    }
+    if (!deviceId) {
+      throw new HttpException('DeviceIp is required', HttpStatus.BAD_REQUEST)
+    }
+    const device = await this.deviceModel.findOne({ _id: deviceId })
+    const username = device.proxyUsername
+    const password = device.proxyPassword
+    const port = device.proxyPort
+    const proxyUrl = `socks5://${username}:${password}@${device.ip}:${port}`
+    const proxyAgent = new SocksProxyAgent(proxyUrl)
+
+    const httpService = new HttpService()
+
+    const res = await httpService.axiosRef({
+      method: 'GET',
+      url,
+      httpAgent: proxyAgent,
+      httpsAgent: proxyAgent, // for HTTPS requests if needed
+    })
+    return res.data
   }
 }

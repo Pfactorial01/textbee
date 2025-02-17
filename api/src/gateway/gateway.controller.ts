@@ -173,10 +173,11 @@ export class GatewayController {
     return { message: 'ping received' }
   }
 
-  @ApiOperation({ summary: 'Scrape website through device' })
-  @Post('/scrape')
+  @ApiOperation({ summary: 'Scrape website through device webview' })
+  @Post('/scrape-with-webview')
   async scrapeWithDevice(@Body() input, @Request() req) {
-    const data = await this.gatewayService.scrapeWebsiteThroughDevice(input)
+    const data =
+      await this.gatewayService.scrapeWebsiteThroughDeviceWebview(input)
     return { data }
   }
 
@@ -321,5 +322,13 @@ export class GatewayController {
       body,
     )
     return data
+  }
+
+  @ApiOperation({ summary: 'Scrape website through device proxy' })
+  @Post('/scrape-with-proxy')
+  async scrapeWithDeviceProxy(@Body() input, @Request() req) {
+    const data =
+      await this.gatewayService.scrapeWebsiteThroughDeviceProxy(input)
+    return { data }
   }
 }
