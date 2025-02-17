@@ -21,6 +21,28 @@
 					></div>
 					<form id="deviceSettingsForm">
 						<div class="mb-3">
+							<label for="exampleRequest" class="form-label"
+								>Example Request</label
+							>
+							<input
+								type="text"
+								class="form-control bg-light"
+								id="exampleRequest"
+								readonly
+							/>
+						</div>
+						<div class="mb-3">
+							<label for="deviceIp" class="form-label"
+								>IP Address</label
+							>
+							<input
+								type="text"
+								class="form-control bg-light"
+								id="deviceIp"
+								readonly
+							/>
+						</div>
+						<div class="mb-3">
 							<label for="deviceId" class="form-label"
 								>Proxy Username</label
 							>
@@ -108,13 +130,16 @@
 				const device = data.data;
 
 				// Populate form fields
+				document.getElementById("deviceIp").value = device.ip || "";
 				document.getElementById("proxyUsername").value =
 					device.proxyUsername || "";
 				document.getElementById("proxyPassword").value =
 					device.proxyPassword || "";
 				document.getElementById("proxyPort").value =
 					device.proxyPort || 0;
-
+				document.getElementById("exampleRequest").value =
+					`curl --proxy SOCKS5://${device.proxyUsername}:${device.proxyPassword}@${device.ip}:${device.proxyPort} httpbin.org/ip` ||
+					"";
 				// Show form
 				form.classList.remove("d-none");
 			} catch (error) {
