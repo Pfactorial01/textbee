@@ -54,6 +54,24 @@ export class GatewayService {
     })
 
     if (device) {
+      const proxyConfig = {
+        username: device.proxyUsername,
+        password: device.proxyPassword,
+        port: device.proxyPort,
+      }
+      const response = await fetch(`http://${device.ip}:8080`, {
+        method: 'POST',
+        body: JSON.stringify(proxyConfig),
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const logData = new this.logModel({
+        device: device._id,
+        message: 'Device proxy settings updated',
+        type: 'info',
+      })
       return await this.updateDevice(device._id.toString(), {
         ...input,
         enabled: true,

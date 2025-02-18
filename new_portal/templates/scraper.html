@@ -97,6 +97,13 @@
 								style="white-space: pre-wrap"
 							></pre>
 						</div>
+
+						<!-- Add a button for opening the new tab manually -->
+					</div>
+					<div id="manualOpenTab" class="d-none">
+						<button id="openTabButton" class="btn btn-warning">
+							Open Scraped Content in New Tab
+						</button>
 					</div>
 				</div>
 			</div>
@@ -206,6 +213,9 @@
 			errorAlert.classList.add("d-none");
 			resultsSection.classList.add("d-none");
 			loadingSpinner.classList.remove("d-none");
+			document.getElementById("manualOpenTab").classList.add("d-none");
+
+			let htmlContent; // Declare variable to hold HTML content
 
 			try {
 				const deviceId = localStorage.getItem("selectedDeviceId");
@@ -236,86 +246,54 @@
 				}
 
 				const data = await response.json();
-				const htmlContent = data.data;
+				htmlContent = data.data; // Store the HTML content
+				console.log({htmlContent})
 
-				// Update source view
-				resultContent.textContent = htmlContent;
-
-				// Update rendered view
-				const shadowHost = document.getElementById('shadowHost');
-				// Create shadow root if it doesn't exist
-				if (!shadowHost.shadowRoot) {
-					shadowHost.attachShadow({ mode: 'open' });
+				// Open the scraped content in a new tab
+				const newTab = window.open(); // Open the new tab here
+				if (newTab) { // Check if the new tab was successfully created
+					newTab.document.write(`
+						<!DOCTYPE html>
+						<html>
+						<head>
+							<title>Scraped Content</title>
+							<style>
+								body { font-family: Arial, sans-serif; }
+							</style>
+						</head>
+						<body>
+							${htmlContent}
+						</body>
+						</html>
+					`);
+					newTab.document.close();
+				} else {
+					console.log("here")
+					// Show button to open the new tab manually
+					document.getElementById("manualOpenTab").classList.remove("d-none");
+					document.getElementById("openTabButton").onclick = function () {
+						const manualTab = window.open();
+						manualTab.document.write(`
+							<!DOCTYPE html>
+							<html>
+							<head>
+								<title>Scraped Content</title>
+								<style>
+									body { font-family: Arial, sans-serif; }
+								</style>
+							</head>
+							<body>
+								${htmlContent}
+							</body>
+							</html>
+						`);
+						manualTab.document.close();
+					};
 				}
 
-				// Set content with isolated styles
-				shadowHost.shadowRoot.innerHTML = `
-					<style>
-						:host {
-							display: block;
-							font-family: system-ui, -apple-system, sans-serif;
-							line-height: 1.5;
-							color: #333;
-						}
-						* {
-							max-width: 100%;
-							box-sizing: border-box;
-						}
-						img {
-							max-width: 100%;
-							height: auto;
-						}
-						a {
-							color: #0d6efd;
-							text-decoration: underline;
-							cursor: pointer;
-						}
-						a:hover {
-							color: #0a58ca;
-						}
-					</style>
-					<div class="content">
-						${htmlContent}
-					</div>
-				`;
+				// Do not show the scraped content under the input again
+				resultsSection.classList.add("d-none");
 
-				// Update the link click handler
-				shadowHost.shadowRoot.addEventListener('click', async function(e) {
-					const link = e.target.closest('a');
-					if (link) {
-						e.preventDefault();
-						e.stopPropagation();
-						
-						// Show loading state
-						loadingSpinner.classList.remove('d-none');
-						
-						try {
-							let href = link.getAttribute('href');
-							
-							// Get the origin from the URL input
-							const inputUrl = urlInput.value;
-							const inputOrigin = new URL(inputUrl).origin; // Extract the origin from the input URL
-							
-							// Check if the link is relative
-							if (!href.startsWith('http://') && !href.startsWith('https://')) {
-								href = new URL(href, inputOrigin).href; // Create absolute URL using the input origin
-							}
-
-							urlInput.value = href;
-							form.dispatchEvent(new Event('submit'));
-						} catch (error) {
-							console.error('Error following link:', error);
-							errorAlert.textContent = error.message;
-							errorAlert.classList.remove('d-none');
-						} finally {
-							loadingSpinner.classList.add('d-none');
-						}
-					}
-				});
-
-				// Show results section
-				resultsSection.classList.remove("d-none");
-				
 			} catch (error) {
 				console.error("Error:", error);
 				errorAlert.textContent = error.message;
