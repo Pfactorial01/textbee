@@ -372,6 +372,17 @@
 		const SWIPE_TIME_THRESHOLD = 300; // ms; maximum time for a click vs swipe detection
 		const SWIPE_VELOCITY_THRESHOLD = 0.2; // pixels/ms; minimum velocity to qualify as a swipe
 
+		// Create a visual indicator for touch
+		const touchIndicator = document.createElement("div");
+		touchIndicator.style.position = "absolute";
+		touchIndicator.style.borderRadius = "50%";
+		touchIndicator.style.backgroundColor = "rgba(128, 128, 128, 0.5)"; // Grey fill
+		touchIndicator.style.pointerEvents = "none"; // Prevent it from interfering with mouse events
+		touchIndicator.style.width = "30px"; // Adjust size as needed
+		touchIndicator.style.height = "30px"; // Adjust size as needed
+		touchIndicator.style.display = "none"; // Initially hidden
+		document.body.appendChild(touchIndicator);
+
 		async function startMirroring() {
 			const deviceId = localStorage.getItem("selectedDeviceId");
 			try {
@@ -520,6 +531,7 @@
 				const SWIPE_THRESHOLD = 10; // pixels; minimum movement to qualify as a swipe
 				const SWIPE_TIME_THRESHOLD = 300; // ms; maximum time for a click vs swipe detection
 				const SWIPE_VELOCITY_THRESHOLD = 0.2; // pixels/ms; minimum velocity to qualify as a swipe
+				const SCROLL_SPEED_REDUCTION = 0.5; // Reduce scroll speed by this factor (adjust as needed)
 
 				// ===== Event Listeners =====
 
@@ -531,11 +543,6 @@
 				video.addEventListener("mousemove", handleMouseMove);
 				video.addEventListener("mouseup", handleMouseUp);
 				video.addEventListener("mouseleave", handleMouseUp); // in case pointer leaves before mouseup
-
-				// Touch events
-				video.addEventListener("touchstart", handleTouchStart);
-				video.addEventListener("touchmove", handleTouchMove);
-				video.addEventListener("touchend", handleTouchEnd);
 
 				// ===== Helper Function =====
 
@@ -595,11 +602,20 @@
 					lastMouseX = event.clientX;
 					lastMouseY = event.clientY;
 					swipeStartTime = Date.now();
+
+					// Show touch indicator
+					touchIndicator.style.left = `${event.clientX - 15}px`; // Center the circle
+					touchIndicator.style.top = `${event.clientY - 15}px`; // Center the circle
+					touchIndicator.style.display = "block"; // Show the indicator
 				}
 
 				function handleMouseMove(event) {
 					if (!socket?.connected || !isMouseDown) return;
 					event.preventDefault();
+
+					// Update touch indicator position
+					touchIndicator.style.left = `${event.clientX - 15}px`; // Center the circle
+					touchIndicator.style.top = `${event.clientY - 15}px`; // Center the circle
 
 					const currentTime = Date.now();
 					const deltaTime = currentTime - swipeStartTime;
@@ -620,43 +636,6 @@
 						velocity > SWIPE_VELOCITY_THRESHOLD
 					) {
 						hasMovedSignificantly = true;
-
-						const rect = video.getBoundingClientRect();
-						const videoWidth = 270;
-						const videoHeight = 600;
-
-						// Calculate scaling and centering offsets
-						const scale = Math.min(
-							rect.width / videoWidth,
-							rect.height / videoHeight
-						);
-						const scaledWidth = videoWidth * scale;
-						const scaledHeight = videoHeight * scale;
-						const offsetX = (rect.width - scaledWidth) / 2;
-						const offsetY = (rect.height - scaledHeight) / 2;
-
-						// Calculate adjusted coordinates
-						const adjustedX =
-							(event.clientX - rect.left - offsetX) / scale;
-						const adjustedY =
-							(event.clientY - rect.top - offsetY) / scale;
-
-						// Only emit if within video content area
-						if (
-							adjustedX >= 0 &&
-							adjustedX <= videoWidth &&
-							adjustedY >= 0 &&
-							adjustedY <= videoHeight
-						) {
-							socket.emit("input", {
-								deviceId: data.deviceId,
-								type: "scroll",
-								x: adjustedX,
-								y: adjustedY,
-								dx: -deltaX, // Invert delta for natural scrolling
-								dy: -deltaY,
-							});
-						}
 					}
 
 					// Update last position
@@ -667,6 +646,9 @@
 				function handleMouseUp(event) {
 					if (!socket?.connected || !isMouseDown) return;
 					event.preventDefault();
+
+					// Hide touch indicator
+					touchIndicator.style.display = "none";
 
 					const deltaTime = Date.now() - swipeStartTime;
 					const totalMoveX = Math.abs(event.clientX - startMouseX);
@@ -683,96 +665,65 @@
 						deltaTime < SWIPE_TIME_THRESHOLD
 					) {
 						handleTap(startMouseX, startMouseY); // Use start position for more accurate taps
+					} else if (hasMovedSignificantly) {
+						// Capture and emit the full swipe only once
+						const rect = video.getBoundingClientRect();
+						const videoWidth = 270;
+						const videoHeight = 600;
+
+						// Calculate scaling and centering offsets
+						const scale = Math.min(
+							rect.width / videoWidth,
+							rect.height / videoHeight
+						);
+						const scaledWidth = videoWidth * scale;
+						const scaledHeight = videoHeight * scale;
+						const offsetX = (rect.width - scaledWidth) / 2;
+						const offsetY = (rect.height - scaledHeight) / 2;
+
+						// Calculate adjusted start and end coordinates
+						const adjustedStartX =
+							(startMouseX - rect.left - offsetX) / scale;
+						const adjustedStartY =
+							(startMouseY - rect.top - offsetY) / scale;
+						const adjustedEndX =
+							(event.clientX - rect.left - offsetX) / scale;
+						const adjustedEndY =
+							(event.clientY - rect.top - offsetY) / scale;
+
+						// Calculate total delta for the swipe
+						let totalDeltaX = adjustedEndX - adjustedStartX;
+						let totalDeltaY = adjustedEndY - adjustedStartY;
+
+						// Apply scroll speed reduction
+						totalDeltaX *= SCROLL_SPEED_REDUCTION;
+						totalDeltaY *= SCROLL_SPEED_REDUCTION;
+
+						// Only emit if within video content area
+						if (
+							adjustedStartX >= 0 &&
+							adjustedStartX <= videoWidth &&
+							adjustedStartY >= 0 &&
+							adjustedStartY <= videoHeight &&
+							adjustedEndX >= 0 &&
+							adjustedEndX <= videoWidth &&
+							adjustedEndY >= 0 &&
+							adjustedEndY <= videoHeight
+						) {
+							socket.emit("input", {
+								deviceId: data.deviceId,
+								type: "scroll",
+								x: adjustedStartX,
+								y: adjustedStartY,
+								dx: -totalDeltaX, // Invert delta for natural scrolling
+								dy: -totalDeltaY,
+							});
+						}
 					}
 
 					// Reset state
 					isMouseDown = false;
 					hasMovedSignificantly = false;
-				}
-
-				// ===== Touch Event Handlers =====
-
-				function handleTouchStart(event) {
-					if (!socket?.connected) return;
-					if (event.touches.length > 0) {
-						const touch = event.touches[0];
-						startTouchX = touch.clientX;
-						startTouchY = touch.clientY;
-						lastTouchY = touch.clientY;
-						touchStartTime = Date.now();
-					}
-				}
-
-				function handleTouchMove(event) {
-					if (!socket?.connected) return;
-					event.preventDefault();
-					if (event.touches.length > 0) {
-						const touch = event.touches[0];
-						const deltaY = lastTouchY - touch.clientY;
-						const deltaTime = Date.now() - touchStartTime;
-
-						// Only treat as a swipe if the movement is significant.
-						if (
-							Math.abs(deltaY) > TOUCH_CLICK_THRESHOLD &&
-							deltaTime > 50
-						) {
-							const rect = video.getBoundingClientRect();
-							const videoWidth = 270;
-							const videoHeight = 600;
-
-							// Calculate scaling and centering offsets.
-							const scale = Math.min(
-								rect.width / videoWidth,
-								rect.height / videoHeight
-							);
-							const scaledWidth = videoWidth * scale;
-							const scaledHeight = videoHeight * scale;
-							const offsetX = (rect.width - scaledWidth) / 2;
-							const offsetY = (rect.height - scaledHeight) / 2;
-
-							const touchX = touch.clientX;
-							const touchY = touch.clientY;
-							const adjustedX =
-								(touchX - rect.left - offsetX) / scale;
-							const adjustedY =
-								(touchY - rect.top - offsetY) / scale;
-
-							if (
-								adjustedX >= 0 &&
-								adjustedX <= videoWidth &&
-								adjustedY >= 0 &&
-								adjustedY <= videoHeight
-							) {
-								socket.emit("input", {
-									deviceId: data.deviceId,
-									type: "scroll", // swipe/scroll event
-									x: adjustedX,
-									y: adjustedY,
-									dy: deltaY,
-								});
-							}
-
-							// Update for continuous swipe detection.
-							lastTouchY = touch.clientY;
-							touchStartTime = Date.now();
-						}
-					}
-				}
-
-				function handleTouchEnd(event) {
-					if (!socket?.connected) return;
-					// When touch ends, check if the total movement was minimal. If so, treat it as a tap.
-					if (event.changedTouches.length > 0) {
-						const touch = event.changedTouches[0];
-						const moveX = Math.abs(touch.clientX - startTouchX);
-						const moveY = Math.abs(touch.clientY - startTouchY);
-						if (
-							moveX < TOUCH_CLICK_THRESHOLD &&
-							moveY < TOUCH_CLICK_THRESHOLD
-						) {
-							handleTap(touch.clientX, touch.clientY);
-						}
-					}
 				}
 			} catch (error) {
 				console.error("Mirroring error:", error);

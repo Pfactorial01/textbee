@@ -221,6 +221,7 @@
 				setTimeout(() => {
 					successAlert.remove();
 				}, 10000);
+				window.location.reload();
 			} catch (error) {
 				console.error("Error updating device settings:", error);
 				errorAlert.textContent = `Failed to update settings: ${error.message}`;

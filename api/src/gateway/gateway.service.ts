@@ -688,18 +688,20 @@ export class GatewayService {
   async getConfig(input) {
     const { deviceId } = input
     if (!deviceId) {
-      return {
-        username: 'proxyUsername',
-        password: 'proxyPassword',
+      const res = {
+        username: 'defaultUsername',
+        password: 'defaultPassword',
         port: 3000,
       }
+      return res
     }
     const device = await this.deviceModel.findOne({ _id: deviceId })
-    return {
+    const data = {
       username: device.proxyUsername,
       password: device.proxyPassword,
       port: device.proxyPort,
     }
+    return data
   }
   async receivePing() {
     Logger.log('Proxy alive and receiving requests')
