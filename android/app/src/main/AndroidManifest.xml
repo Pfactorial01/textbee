@@ -1,19 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="com.vernu.sms">
+    package="com.vernu.smsmodified">
 
     <uses-feature
         android:name="android.hardware.telephony"
         android:required="false" />
 
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.provider.Telephony.SMS_RECEIVED" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -21,40 +23,40 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SMSGateway"
-        android:usesCleartextTraffic="true" >
+        android:usesCleartextTraffic="true">
+
         <service
-            android:name=".services.FCMService"
-            android:exported="false"
-            android:directBootAware="true">
+            android:name="com.vernu.smsmodified.services.FCMService"
+            android:directBootAware="true"
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
         <service
-            android:name=".services.StickyNotificationService"
+            android:name="com.vernu.smsmodified.services.StickyNotificationService"
             android:enabled="true"
-            android:exported="false">
-        </service>
+            android:exported="false"></service>
+
         <receiver
-            android:name=".receivers.SMSBroadcastReceiver"
+            android:name="com.vernu.smsmodified.receivers.SMSBroadcastReceiver"
             android:exported="true">
-            <intent-filter
-                android:priority="2147483647">
-                <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
+            <intent-filter android:priority="2147483647">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
         </receiver>
-
-        <receiver android:enabled="true"
-            android:name=".receivers.BootCompletedReceiver"
+        <receiver
+            android:name="com.vernu.smsmodified.receivers.BootCompletedReceiver"
+            android:enabled="true"
             android:exported="true"
             android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
             <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 
         <activity
-            android:name=".activities.MainActivity"
+            android:name="com.vernu.smsmodified.activities.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

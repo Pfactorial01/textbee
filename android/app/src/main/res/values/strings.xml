@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">TextBee</string>
+    <string name="app_name">TextBee Modified</string>
+    <string name="title_activity_proxy">ProxyActivity</string>
 </resources>
