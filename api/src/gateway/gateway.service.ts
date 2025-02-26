@@ -236,6 +236,8 @@ export class GatewayService {
             device: device.id,
             number: recipient,
             thread_id: '',
+            human_interaction: false,
+            channel_id: '',
             followUpDue: new Date(new Date().getTime() + followUpSchedule[0]),
           })
         } else {
@@ -292,6 +294,8 @@ export class GatewayService {
             device: device.id,
             number: recipient,
             thread_id: '',
+            human_interaction: false,
+            channel_id: '',
             followUpDue: new Date(new Date().getTime() + followUpSchedule[0]),
           })
         }
@@ -515,6 +519,8 @@ export class GatewayService {
         device: device.id,
         number: dto.sender,
         thread_id: '',
+        human_interaction: false,
+        channel_id: '',
       })
     }
     await this.conversationModel.findByIdAndUpdate(conversation._id, {
@@ -584,7 +590,7 @@ export class GatewayService {
     })
 
     const res = await fetch(
-      'https://192.168.12.109/webhook/28b6c43b-0da1-4f7c-934d-d0d922400854/',
+      'https://n8n.airebrokers.com/webhook/28b6c43b-0da1-4f7c-934d-d0d922400854/',
       {
         method: 'post',
         body: JSON.stringify({
@@ -595,12 +601,17 @@ export class GatewayService {
           receivedAt,
           read: false,
           thread_id: conversation.thread_id,
+          human_interaction: conversation.human_interaction,
+          channel_id: conversation.channel_id,
           assistantReplyDelay: device.assistantReplyDelay,
           meta_data: {
             message_history: messageHistory,
           },
         }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer k326ds93dngrltyuhewtmlaoeccmru',
+        },
       },
     )
     this.deviceModel
@@ -913,7 +924,15 @@ export class GatewayService {
         number: conversationData.sender,
       },
       {
-        thread_id: conversationData.thread_id,
+        ...(conversationData.thread_id && {
+          thread_id: conversationData.thread_id,
+        }),
+        ...(conversationData.human_interaction && {
+          human_interaction: conversationData.human_interaction,
+        }),
+        ...(conversationData.channel_id && {
+          channel_id: conversationData.channel_id,
+        }),
       },
     )
     return conversation

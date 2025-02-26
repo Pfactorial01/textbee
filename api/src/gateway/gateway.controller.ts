@@ -107,7 +107,7 @@ export class GatewayController {
   }
 
   @ApiOperation({ summary: 'Send SMS to a device' })
-  @UseGuards(AuthGuard, CanModifyDevice)
+  @UseGuards(AuthGuard)
   // deprecate sendSMS route in favor of send-sms, but allow both to prevent breaking changes
   @Post(['/devices/:id/sendSMS', '/devices/:id/send-sms'])
   async sendSMS(

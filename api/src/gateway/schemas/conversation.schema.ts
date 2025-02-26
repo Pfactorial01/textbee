@@ -17,6 +17,12 @@ export class Conversation {
   @Prop({ type: String })
   thread_id: string
 
+  @Prop({ type: Boolean })
+  human_interaction: boolean
+
+  @Prop({ type: String })
+  channel_id: string
+
   @Prop({ type: Date })
   followUpDue: Date
 
