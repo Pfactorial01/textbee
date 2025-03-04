@@ -352,6 +352,12 @@ document.addEventListener("DOMContentLoaded", function () {
 									);
 								}
 
+								// Show initial elements after successful deletion
+								currentChatContact.textContent =
+									"Select a contact";
+								chatMessages.innerHTML = ""; // Clear messages
+								noChatSelected.style.display = "block";
+
 								// Refresh contacts to update the list
 								fetchContacts();
 							} catch (error) {
@@ -386,7 +392,39 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		// Initial contacts load
 		fetchContacts();
+		// Update the addMessage function to maintain order
+		function addMessage(text, sent = false) {
+			const messageDiv = document.createElement("div");
+			messageDiv.className = `message message-${
+				sent ? "sent" : "received"
+			}`;
 
+			const messageText = document.createElement("div");
+			messageText.className = "message-text";
+			messageText.textContent = text;
+
+			const messageTime = document.createElement("div");
+			messageTime.className = "message-time";
+			messageTime.textContent = new Date().toLocaleString([], {
+				hour: "2-digit",
+				minute: "2-digit",
+				year: "2-digit",
+				month: "2-digit",
+				day: "2-digit",
+			});
+
+			messageDiv.appendChild(messageText);
+			messageDiv.appendChild(messageTime);
+
+			// Add to the end of the messages container
+			const messagesContainer =
+				chatMessages.querySelector(".messages-container") ||
+				chatMessages;
+			messagesContainer.appendChild(messageDiv);
+
+			// Scroll to bottom to show new message
+			chatMessages.scrollTop = chatMessages.scrollHeight;
+		}
 		// Handle contact selection
 		contactsList.addEventListener("click", function (e) {
 			const contact = e.target.closest(".list-group-item");
@@ -418,23 +456,56 @@ document.addEventListener("DOMContentLoaded", function () {
 		messageForm.addEventListener("submit", async function (e) {
 			e.preventDefault();
 			const message = messageInput.value.trim();
-			if (!message) return;
+
+			// Get the selected media type
+			const isUrlOption = document.getElementById("urlOption").checked;
+			let mediaFile = null;
+			let mediaUrl = null;
+
+			if (isUrlOption) {
+				mediaUrl = document
+					.getElementById("mediaUrlInputNormal")
+					.value.trim();
+			} else {
+				mediaFile =
+					document.getElementById("mediaUploadNormal").files[0];
+			}
+
+			if (!message && !mediaFile && !mediaUrl) return;
 
 			const deviceId = localStorage.getItem("selectedDeviceId");
 			const recipient = currentChatContact.textContent;
 
-			// Disable send button and input while sending
+			// Disable form elements while sending
 			const sendButton = document.getElementById("sendButton");
 			messageInput.disabled = true;
 			sendButton.disabled = true;
+			mediaUploadBtn.disabled = true;
 
 			try {
+				console.log({
+					message,
+					recipient,
+					mediaFile,
+					mediaUrl,
+					isUrlOption,
+				});
+				const formData = new FormData();
+				formData.append("message", message);
+				formData.append("recipients[]", recipient);
+
+				// Add media - either file or URL
+				if (isUrlOption && mediaUrl) {
+					formData.append("mediaUrl", mediaUrl);
+				} else if (!isUrlOption && mediaFile) {
+					formData.append("media", mediaFile);
+				}
+
 				const response = await fetch(
 					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/send-sms`,
 					{
 						method: "POST",
 						headers: {
-							"Content-Type": "application/json",
 							Authorization: `Bearer ${
 								document.cookie
 									.split("; ")
@@ -444,10 +515,7 @@ document.addEventListener("DOMContentLoaded", function () {
 									?.split("=")[1]
 							}`,
 						},
-						body: JSON.stringify({
-							message: message,
-							recipients: [recipient],
-						}),
+						body: formData,
 					}
 				);
 
@@ -455,30 +523,40 @@ document.addEventListener("DOMContentLoaded", function () {
 					throw new Error("Failed to send message");
 				}
 
+				// Clear form
+				messageInput.value = "";
+				document.getElementById("mediaUploadNormal").value = "";
+				document.getElementById("mediaUrlInputNormal").value = "";
+				mediaPreview.style.display = "none";
+				previewImage.src = "";
+				previewVideo.src = "";
+
+				// Close media modal if open
+				const mediaModal = bootstrap.Modal.getInstance(
+					document.getElementById("mediaModal")
+				);
+				if (mediaModal) {
+					mediaModal.hide();
+				}
 				// Add message to chat
 				addMessage(message, true);
-
-				// Clear input
-				messageInput.value = "";
-
 				// Refresh contacts to update last message
 				fetchContacts();
 			} catch (error) {
 				console.error("Error sending message:", error);
-				// Show error message
 				const errorDiv = document.createElement("div");
 				errorDiv.className = "alert alert-danger m-3";
 				errorDiv.textContent = `Failed to send message: ${error.message}`;
 				chatMessages.appendChild(errorDiv);
 
-				// Auto-remove error message after 5 seconds
 				setTimeout(() => {
 					errorDiv.remove();
 				}, 5000);
 			} finally {
-				// Re-enable input and button
+				// Re-enable form elements
 				messageInput.disabled = false;
 				sendButton.disabled = false;
+				mediaUploadBtn.disabled = false;
 				messageInput.focus();
 			}
 		});
@@ -505,51 +583,85 @@ document.addEventListener("DOMContentLoaded", function () {
 		const phoneNumber = document.getElementById("phoneNumber").value.trim();
 		const message = document.getElementById("message").value.trim();
 
-		if (phoneNumber && message) {
-			const deviceId = localStorage.getItem("selectedDeviceId");
+		// Get the selected media type
+		const isUrlOption = document.getElementById("urlOptionNewChat").checked;
+		let mediaFile = null;
+		let mediaUrl = null;
 
-			// Disable the button while sending
-			const sendButton = document.getElementById("sendButton");
-			sendButton.disabled = true;
-
-			try {
-				const response = await fetch(
-					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/send-sms`,
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${
-								document.cookie
-									.split("; ")
-									.find((row) =>
-										row.startsWith("client_access_token=")
-									)
-									?.split("=")[1]
-							}`,
-						},
-						body: JSON.stringify({
-							message: message,
-							recipients: [phoneNumber],
-						}),
-					}
-				);
-
-				if (!response.ok) {
-					throw new Error("Failed to send message");
-				}
-
-				// Refresh the page to update context
-				window.location.reload();
-			} catch (error) {
-				console.error("Error sending message:", error);
-				alert(`Failed to send message: ${error.message}`);
-			} finally {
-				// Re-enable button
-				sendButton.disabled = false;
-			}
+		if (isUrlOption) {
+			mediaUrl = document
+				.getElementById("mediaUrlInputNewChat")
+				.value.trim();
 		} else {
+			mediaFile = document.getElementById("mediaUploadNewChat").files[0];
+		}
+
+		if (!phoneNumber || !message) {
 			alert("Please provide both a phone number and a message.");
+			return;
+		}
+
+		const deviceId = localStorage.getItem("selectedDeviceId");
+
+		// Disable the button while sending
+		const sendButton = this.querySelector("button[type=submit]");
+		sendButton.disabled = true;
+
+		try {
+			console.log({
+				message,
+				phoneNumber,
+				mediaFile,
+				mediaUrl,
+				isUrlOption,
+			});
+			const formData = new FormData();
+			formData.append("message", message);
+			formData.append("recipients[]", phoneNumber);
+
+			// Add media - either file or URL
+			if (isUrlOption && mediaUrl) {
+				formData.append("mediaUrl", mediaUrl);
+			} else if (!isUrlOption && mediaFile) {
+				formData.append("media", mediaFile);
+			}
+
+			const response = await fetch(
+				`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/send-sms`,
+				{
+					method: "POST",
+					headers: {
+						Authorization: `Bearer ${
+							document.cookie
+								.split("; ")
+								.find((row) =>
+									row.startsWith("client_access_token=")
+								)
+								?.split("=")[1]
+						}`,
+					},
+					body: formData,
+				}
+			);
+
+			if (!response.ok) {
+				throw new Error("Failed to send message");
+			}
+
+			// Close the modal
+			const modal = bootstrap.Modal.getInstance(
+				document.getElementById("newChatModal")
+			);
+			modal.hide();
+
+			// Refresh the page to update context
+			window.location.reload();
+		} catch (error) {
+			console.error("Error sending message:", error);
+			alert(`Failed to send message: ${error.message}`);
+		} finally {
+			// Re-enable button
+			sendButton.disabled = false;
 		}
 	});
 
@@ -636,4 +748,58 @@ document.addEventListener("DOMContentLoaded", function () {
 
 	// Attach click event to deleteIcon
 	deleteIcon.addEventListener("click", handleDeleteMessages);
+
+	// Add these functions after the DOMContentLoaded event listener
+
+	function handleMediaUpload(
+		input,
+		previewImage,
+		previewVideo,
+		previewContainer
+	) {
+		const file = input.files[0];
+		if (!file) return;
+
+		// Check file size (1MB = 1048576 bytes)
+		if (file.size > 2048576) {
+			alert("File size must be less than 1MB");
+			input.value = "";
+			return;
+		}
+
+		const reader = new FileReader();
+		reader.onload = function (e) {
+			if (file.type.startsWith("image/")) {
+				previewImage.src = e.target.result;
+				previewImage.style.display = "block";
+				previewVideo.style.display = "none";
+			} else if (file.type.startsWith("video/")) {
+				previewVideo.src = e.target.result;
+				previewVideo.style.display = "block";
+				previewImage.style.display = "none";
+			}
+			previewContainer.style.display = "block";
+		};
+		reader.readAsDataURL(file);
+	}
+
+	// Inside your existing DOMContentLoaded event listener, add:
+	const mediaUploadBtn = document.getElementById("mediaUploadBtn");
+	const mediaInput = document.getElementById("mediaInput");
+	const newChatMediaInput = document.getElementById("mediaUpload");
+	const mediaPreview = document.getElementById("mediaPreview");
+	const previewImage = document.getElementById("previewImage");
+	const previewVideo = document.getElementById("previewVideo");
+	const removeMedia = document.getElementById("removeMedia");
+
+	mediaInput.addEventListener("change", () => {
+		handleMediaUpload(mediaInput, previewImage, previewVideo, mediaPreview);
+	});
+
+	removeMedia.addEventListener("click", () => {
+		mediaInput.value = "";
+		mediaPreview.style.display = "none";
+		previewImage.src = "";
+		previewVideo.src = "";
+	});
 });

@@ -77,4 +77,8 @@ ENV FIREBASE_CLIENT_C509_CERT_URL="https://www.googleapis.com/robot/v1/metadata/
 
 ENV PROXY_USERNAME="xyz"
 ENV PROXY_PASSWORD="abc"
-CMD [ "pnpm", "run", "start:dev" ]
+ENV DISPLAY=:99
+RUN Xvfb :99 &
+
+
+CMD ["pnpm", "run", "start:dev"]

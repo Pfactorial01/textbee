@@ -171,6 +171,7 @@ export class GatewayService {
 
     const message = smsData.message || smsData.smsBody
     const recipients = smsData.recipients || smsData.receivers
+    const mediaUrl = smsData.mediaUrl
 
     if (!message) {
       throw new HttpException(
@@ -224,6 +225,8 @@ export class GatewayService {
         type: SMSType.SENT,
         recipient,
         requestedAt: new Date(),
+        mediaUrl: smsData.mediaUrl,
+        mediaType: smsData.mediaType,
       })
       const followUpSchedule = device.followUpSchedule
       let conversation = await this.conversationModel.findOne({
@@ -306,6 +309,8 @@ export class GatewayService {
         smsBatchId: smsBatch._id,
         message,
         recipients: [recipient],
+        mediaUrl,
+        smsType: mediaUrl ? 'mms' : 'sms',
 
         // Legacy fields to be removed in the future
         smsBody: message,
@@ -1063,6 +1068,10 @@ export class GatewayService {
           }
 
           try {
+            const keepAliveProcess = spawn('bash', [
+              '-c',
+              `while true; do adb -s ${device.ip}:${adbPort} shell "echo 'Keeping ADB alive'"; sleep 3000; done`,
+            ])
             // Only update device if both pairing and connection were successful
             await this.deviceModel.findByIdAndUpdate(
               device.id,
@@ -1177,6 +1186,11 @@ export class GatewayService {
             ),
           )
         } else {
+          const keepAliveProcess = spawn('bash', [
+            '-c',
+            `while true; do adb -s ${device.ip}:${device.adbPort} shell "echo 'Keeping ADB alive'"; sleep 3000; done`,
+          ])
+
           resolve({
             success: true,
             message: 'Device connected successfully',
@@ -1197,7 +1211,7 @@ export class GatewayService {
             HttpStatus.REQUEST_TIMEOUT,
           ),
         )
-      }, 2000) // 15 second timeout
+      }, 2000) // 2 second timeout
     })
   }
 
@@ -1355,5 +1369,140 @@ export class GatewayService {
       httpsAgent: proxyAgent, // for HTTPS requests if needed
     })
     return res.data
+  }
+
+  async restartDeviceNetwork(deviceId: string) {
+    const device = await this.deviceModel.findById(deviceId)
+    if (!device) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device does not exist',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+
+    if (!device.adbPort) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Device is not connected via ADB',
+        },
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+
+    return new Promise((resolve, reject) => {
+      // First turn off mobile data
+      const turnOffProcess = spawn('adb', [
+        '-s',
+        `${device.ip}:${device.adbPort}`,
+        'shell',
+        'svc data disable',
+      ])
+
+      let turnOffError = ''
+
+      turnOffProcess.stderr.on('data', (data) => {
+        turnOffError += data.toString()
+      })
+
+      turnOffProcess.on('error', (error) => {
+        reject(
+          new HttpException(
+            {
+              success: false,
+              error: 'Failed to turn off mobile data',
+              details: error.message,
+            },
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          ),
+        )
+      })
+
+      turnOffProcess.on('close', (code) => {
+        if (code !== 0) {
+          reject(
+            new HttpException(
+              {
+                success: false,
+                error: 'Failed to turn off mobile data',
+                details: turnOffError || 'Unknown error occurred',
+                code,
+              },
+              HttpStatus.BAD_REQUEST,
+            ),
+          )
+          return
+        }
+
+        // Wait 15 seconds before turning it back on
+        setTimeout(() => {
+          const turnOnProcess = spawn('adb', [
+            '-s',
+            `${device.ip}:${device.adbPort}`,
+            'shell',
+            'svc data enable',
+          ])
+
+          let turnOnError = ''
+
+          turnOnProcess.stderr.on('data', (data) => {
+            turnOnError += data.toString()
+          })
+
+          turnOnProcess.on('error', (error) => {
+            reject(
+              new HttpException(
+                {
+                  success: false,
+                  error: 'Failed to turn on mobile data',
+                  details: error.message,
+                },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+              ),
+            )
+          })
+
+          turnOnProcess.on('close', (code) => {
+            if (code !== 0) {
+              reject(
+                new HttpException(
+                  {
+                    success: false,
+                    error: 'Failed to turn on mobile data',
+                    details: turnOnError || 'Unknown error occurred',
+                    code,
+                  },
+                  HttpStatus.BAD_REQUEST,
+                ),
+              )
+              return
+            }
+
+            resolve({
+              success: true,
+              message: 'Device network restarted successfully',
+              data: 'Mobile data restarted successfully',
+            })
+          })
+        }, 15000) // 15 seconds delay
+      })
+
+      // Set a timeout for the entire operation
+      setTimeout(() => {
+        turnOffProcess.kill()
+        reject(
+          new HttpException(
+            {
+              success: false,
+              error: 'Operation timed out',
+            },
+            HttpStatus.REQUEST_TIMEOUT,
+          ),
+        )
+      }, 30000) // 30 second timeout for the entire operation
+    })
   }
 }

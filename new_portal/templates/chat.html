@@ -39,21 +39,62 @@
 					</div>
 					<!-- Messages will be dynamically inserted here -->
 				</div>
+				<div
+					id="mediaPreview"
+					class="media-preview"
+					style="display: none"
+				>
+					<img
+						id="previewImage"
+						style="max-height: 100px; display: none"
+					/>
+					<video
+						id="previewVideo"
+						style="max-height: 100px; display: none"
+						controls
+					></video>
+					<button
+						type="button"
+						class="btn-close"
+						id="removeMedia"
+					></button>
+				</div>
 				<div class="card-footer">
+					<!-- Preview container -->
+
 					<form id="messageForm" class="message-input-form">
-						<div class="input-group">
+						<!-- Normal Chat Input -->
+						<div
+							class="input-group"
+							id="messageInputGroup"
+							style="display: none"
+						>
+							<input
+								type="file"
+								id="mediaInput"
+								style="display: none"
+								accept="image/jpeg,image/png,image/gif,video/3gp,video/mp4"
+							/>
 							<input
 								type="text"
 								class="form-control"
 								placeholder="Type a message..."
 								id="messageInput"
-								disabled
 							/>
+							<!-- Add media upload button -->
+							<button
+								type="button"
+								class="btn"
+								id="mediaUploadBtn"
+								data-bs-toggle="modal"
+								data-bs-target="#mediaModal"
+							>
+								<i class="bi bi-paperclip"></i>
+							</button>
 							<button
 								class="btn btn-primary"
 								type="submit"
 								id="sendButton"
-								disabled
 							>
 								<i class="bi bi-send"></i>
 							</button>
@@ -145,6 +186,49 @@
 							required
 						></textarea>
 					</div>
+					<div class="d-flex flex-column gap-3 mb-3">
+						<label class="form-label">Media (optional)</label>
+						<div class="input-group-text">
+							<input
+								type="radio"
+								name="mediaTypeNewChat"
+								id="urlOptionNewChat"
+								checked
+							/>
+							<label
+								for="urlOptionNewChat"
+								style="margin-right: 5px"
+								>Media URL</label
+							>
+							<input
+								type="radio"
+								name="mediaTypeNewChat"
+								id="uploadOptionNewChat"
+							/>
+							<label for="uploadOptionNewChat">Upload File</label>
+						</div>
+						<!-- Media URL Input -->
+						<input
+							type="text"
+							class="form-control"
+							placeholder="Paste media URL here"
+							id="mediaUrlInputNewChat"
+						/>
+						<!-- File Input -->
+						<input
+							type="file"
+							class="form-control"
+							id="mediaUploadNewChat"
+							style="display: none"
+							accept="image/jpeg,image/png,image/gif,video/3gp,video/mp4"
+						/>
+						<small
+							class="text-muted"
+							id="fileSizeMaxNewChat"
+							style="display: none"
+							>Max file size: 1MB</small
+						>
+					</div>
 					<button type="submit" class="btn btn-primary">
 						Send Message
 					</button>
@@ -153,4 +237,290 @@
 		</div>
 	</div>
 </div>
+
+<!-- Modal for Media Upload -->
+<div
+	class="modal fade"
+	id="mediaModal"
+	tabindex="-1"
+	aria-labelledby="mediaModalLabel"
+	aria-hidden="true"
+>
+	<div class="modal-dialog">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="mediaModalLabel">Add Media</h5>
+				<button
+					type="button"
+					class="btn-close"
+					data-bs-dismiss="modal"
+					aria-label="Close"
+				></button>
+			</div>
+			<div class="modal-body">
+				<div class="d-flex flex-column gap-3 mb-3">
+					<label class="form-label">Media (optional)</label>
+					<div class="input-group-text">
+						<input
+							type="radio"
+							name="mediaType"
+							id="urlOption"
+							checked
+						/>
+						<label for="urlOption" style="margin-right: 5px"
+							>Media URL</label
+						>
+						<input
+							type="radio"
+							name="mediaType"
+							id="uploadOption"
+						/>
+						<label for="uploadOption">Upload File</label>
+					</div>
+					<!-- Media URL Input -->
+					<input
+						type="text"
+						class="form-control"
+						placeholder="Paste media URL here"
+						id="mediaUrlInputNormal"
+					/>
+					<!-- File Input -->
+					<input
+						type="file"
+						class="form-control"
+						id="mediaUploadNormal"
+						style="display: none"
+						accept="image/jpeg,image/png,image/gif,video/3gp,video/mp4"
+					/>
+					<small
+						class="text-muted none"
+						id="fileSizeMax"
+						style="display: none"
+						>Max file size: 1MB</small
+					>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button
+					type="button"
+					class="btn btn-secondary"
+					data-bs-dismiss="modal"
+				>
+					Close
+				</button>
+				<button
+					type="button"
+					class="btn btn-primary"
+					id="addMediaButton"
+				>
+					Add Media
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	// Function to initialize the media input options in the new chat modal
+	function initializeNewChatMediaInputs() {
+		// Preselect the URL option
+		document.getElementById("urlOptionNewChat").checked = true;
+		document.getElementById("mediaUploadNewChat").style.display = "none"; // Hide file input
+		document.getElementById("mediaUrlInputNewChat").style.display = "block"; // Show URL input
+	}
+
+	// Toggle media input type for new chat modal
+	document
+		.querySelectorAll('input[name="mediaTypeNewChat"]')
+		.forEach((input) => {
+			input.addEventListener("change", function () {
+				const mediaUploadNewChat =
+					document.getElementById("mediaUploadNewChat");
+				const mediaUrlInputNewChat = document.getElementById(
+					"mediaUrlInputNewChat"
+				);
+				const fileSizeMaxNewChat =
+					document.getElementById("fileSizeMaxNewChat");
+
+				if (this.id === "uploadOptionNewChat") {
+					mediaUploadNewChat.style.display = "block"; // Show file input
+					fileSizeMaxNewChat.style.display = "block";
+					mediaUrlInputNewChat.style.display = "none"; // Hide URL input
+				} else {
+					mediaUploadNewChat.style.display = "none"; // Hide file input
+					fileSizeMaxNewChat.style.display = "none";
+					mediaUrlInputNewChat.style.display = "block"; // Show URL input
+				}
+			});
+		});
+
+	// Initialize inputs on modal open
+	document
+		.getElementById("newChatModal")
+		.addEventListener("show.bs.modal", initializeNewChatMediaInputs);
+
+	// Function to initialize the media input options in the media modal
+	function initializeMediaModal() {
+		// Preselect the URL option
+		document.getElementById("urlOption").checked = true;
+		document.getElementById("mediaUploadNormal").style.display = "none"; // Hide file input
+		document.getElementById("mediaUrlInputNormal").style.display = "block"; // Show URL input
+		document.getElementById("fileSizeMax").style.display = "none";
+		document.getElementById("fileSizeMaxNewChat").style.display = "none";
+	}
+
+	// Toggle media input type for the media modal
+	document.querySelectorAll('input[name="mediaType"]').forEach((input) => {
+		input.addEventListener("change", function () {
+			const mediaUploadNormal =
+				document.getElementById("mediaUploadNormal");
+			const mediaUrlInputNormal = document.getElementById(
+				"mediaUrlInputNormal"
+			);
+			const fileSizeMax = document.getElementById("fileSizeMax");
+
+			if (this.id === "uploadOption") {
+				mediaUploadNormal.style.display = "block"; // Show file input
+				fileSizeMax.style.display = "block";
+				mediaUrlInputNormal.style.display = "none"; // Hide URL input
+			} else {
+				mediaUploadNormal.style.display = "none"; // Hide file input
+				fileSizeMax.style.display = "none";
+				mediaUrlInputNormal.style.display = "block"; // Show URL input
+			}
+		});
+	});
+
+	// Initialize inputs on modal open
+	document
+		.getElementById("mediaModal")
+		.addEventListener("show.bs.modal", initializeMediaModal);
+
+	// Add a flag to indicate programmatic closure
+	let isProgrammaticClose = false;
+
+	// Add media button functionality
+	document
+		.getElementById("addMediaButton")
+		.addEventListener("click", function () {
+			// Get selected media type
+			const isUrlOption = document.getElementById("urlOption").checked;
+			const mediaUrl = document
+				.getElementById("mediaUrlInputNormal")
+				.value.trim();
+			const mediaFile =
+				document.getElementById("mediaUploadNormal").files[0];
+
+			// Validate if any media is selected
+			if (isUrlOption && !mediaUrl) {
+				alert("Please enter a media URL");
+				return;
+			} else if (!isUrlOption && !mediaFile) {
+				alert("Please select a file to upload");
+				return;
+			}
+
+			// Set the flag and close the modal
+			isProgrammaticClose = true;
+			const modal = bootstrap.Modal.getInstance(
+				document.getElementById("mediaModal")
+			);
+			modal.hide();
+		});
+
+	// Reset modal inputs when modal is closed via the close button or clicking outside
+	document
+		.getElementById("mediaModal")
+		.addEventListener("hidden.bs.modal", function (e) {
+			// Only clear inputs if the modal wasn't closed programmatically
+			if (!isProgrammaticClose) {
+				// Reset radio buttons
+				document.getElementById("urlOption").checked = true;
+
+				// Reset and hide file input
+				const mediaUploadNormal =
+					document.getElementById("mediaUploadNormal");
+				mediaUploadNormal.value = "";
+				mediaUploadNormal.style.display = "none";
+
+				// Reset and show URL input
+				const mediaUrlInputNormal = document.getElementById(
+					"mediaUrlInputNormal"
+				);
+				mediaUrlInputNormal.value = "";
+				mediaUrlInputNormal.style.display = "block";
+
+				// Hide file size notice
+				document.getElementById("fileSizeMax").style.display = "none";
+			} else {
+				// Reset the flag after handling the close
+				isProgrammaticClose = false;
+			}
+		});
+
+	// For new chat modal, handle the same way
+	document
+		.getElementById("newChatModal")
+		.addEventListener("hidden.bs.modal", function () {
+			// Reset radio buttons
+			document.getElementById("urlOptionNewChat").checked = true;
+
+			// Reset and hide file input
+			const mediaUploadNewChat =
+				document.getElementById("mediaUploadNewChat");
+			mediaUploadNewChat.value = "";
+			mediaUploadNewChat.style.display = "none";
+
+			// Reset and show URL input
+			const mediaUrlInputNewChat = document.getElementById(
+				"mediaUrlInputNewChat"
+			);
+			mediaUrlInputNewChat.value = "";
+			mediaUrlInputNewChat.style.display = "block";
+
+			// Hide file size notice
+			document.getElementById("fileSizeMaxNewChat").style.display =
+				"none";
+
+			// Also reset the message and phone number fields
+			document.getElementById("phoneNumber").value = "";
+			document.getElementById("message").value = "";
+		});
+
+	// Handle contact selection
+	contactsList.addEventListener("click", function (e) {
+		const contact = e.target.closest(".list-group-item");
+		if (!contact) return;
+
+		// Remove active class from all contacts
+		contactsList.querySelectorAll(".list-group-item").forEach((item) => {
+			item.classList.remove("active");
+		});
+
+		// Add active class to selected contact
+		contact.classList.add("active");
+
+		// Enable message input
+		messageInput.disabled = false;
+		document.getElementById("sendButton").disabled = false;
+
+		// Update current chat contact
+		currentChatContact.textContent = contact.dataset.phone;
+		noChatSelected.style.display = "none";
+
+		// Show the message input group
+		document.getElementById("messageInputGroup").style.display = "flex"; // Show the message input group
+
+		// Load chat messages for this contact
+		loadChatMessages(contact.dataset.phone, chatMessages);
+	});
+
+	// Hide the message input group when no contact is selected
+	function hideMessageInputGroup() {
+		document.getElementById("messageInputGroup").style.display = "none"; // Hide the message input group
+	}
+
+	// Call this function when no contact is selected
+	hideMessageInputGroup();
+</script>
 {% endblock %}
