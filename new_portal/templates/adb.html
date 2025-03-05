@@ -374,13 +374,15 @@
 
 		// Create a visual indicator for touch
 		const touchIndicator = document.createElement("div");
-		touchIndicator.style.position = "absolute";
+		touchIndicator.style.position = "fixed";
 		touchIndicator.style.borderRadius = "50%";
-		touchIndicator.style.backgroundColor = "rgba(128, 128, 128, 0.5)"; // Grey fill
-		touchIndicator.style.pointerEvents = "none"; // Prevent it from interfering with mouse events
-		touchIndicator.style.width = "30px"; // Adjust size as needed
-		touchIndicator.style.height = "30px"; // Adjust size as needed
-		touchIndicator.style.display = "none"; // Initially hidden
+		touchIndicator.style.backgroundColor = "rgba(128, 128, 128, 0.5)";
+		touchIndicator.style.pointerEvents = "none";
+		touchIndicator.style.width = "30px";
+		touchIndicator.style.height = "30px";
+		touchIndicator.style.transform = "translate(-50%, -50%)";
+		touchIndicator.style.display = "none";
+		touchIndicator.style.zIndex = "1000";
 		document.body.appendChild(touchIndicator);
 
 		async function startMirroring() {
@@ -595,52 +597,76 @@
 					if (!socket?.connected) return;
 					event.preventDefault();
 
-					isMouseDown = true;
-					hasMovedSignificantly = false;
-					startMouseX = event.clientX;
-					startMouseY = event.clientY;
-					lastMouseX = event.clientX;
-					lastMouseY = event.clientY;
-					swipeStartTime = Date.now();
+					const rect = video.getBoundingClientRect();
+					const mouseX = event.clientX;
+					const mouseY = event.clientY;
 
-					// Show touch indicator
-					touchIndicator.style.left = `${event.clientX - 15}px`; // Center the circle
-					touchIndicator.style.top = `${event.clientY - 15}px`; // Center the circle
-					touchIndicator.style.display = "block"; // Show the indicator
+					// Only show indicator if mouse is within video bounds
+					if (
+						mouseX >= rect.left &&
+						mouseX <= rect.right &&
+						mouseY >= rect.top &&
+						mouseY <= rect.bottom
+					) {
+						isMouseDown = true;
+						hasMovedSignificantly = false;
+						startMouseX = mouseX;
+						startMouseY = mouseY;
+						lastMouseX = mouseX;
+						lastMouseY = mouseY;
+						swipeStartTime = Date.now();
+
+						// Update touch indicator position
+						touchIndicator.style.left = `${mouseX}px`;
+						touchIndicator.style.top = `${mouseY}px`;
+						touchIndicator.style.display = "block";
+					}
 				}
 
 				function handleMouseMove(event) {
 					if (!socket?.connected || !isMouseDown) return;
 					event.preventDefault();
 
-					// Update touch indicator position
-					touchIndicator.style.left = `${event.clientX - 15}px`; // Center the circle
-					touchIndicator.style.top = `${event.clientY - 15}px`; // Center the circle
+					const rect = video.getBoundingClientRect();
+					const mouseX = event.clientX;
+					const mouseY = event.clientY;
 
-					const currentTime = Date.now();
-					const deltaTime = currentTime - swipeStartTime;
-					const deltaX = event.clientX - lastMouseX;
-					const deltaY = event.clientY - lastMouseY;
-					const totalDeltaX = event.clientX - startMouseX;
-					const totalDeltaY = event.clientY - startMouseY;
-
-					// Calculate velocity of movement
-					const velocity =
-						Math.sqrt(deltaX * deltaX + deltaY * deltaY) /
-						deltaTime;
-
-					// Check if movement qualifies as a swipe
+					// Only update indicator if mouse is within video bounds
 					if (
-						Math.abs(totalDeltaX) > SWIPE_THRESHOLD ||
-						Math.abs(totalDeltaY) > SWIPE_THRESHOLD ||
-						velocity > SWIPE_VELOCITY_THRESHOLD
+						mouseX >= rect.left &&
+						mouseX <= rect.right &&
+						mouseY >= rect.top &&
+						mouseY <= rect.bottom
 					) {
-						hasMovedSignificantly = true;
-					}
+						// Update touch indicator position
+						touchIndicator.style.left = `${mouseX}px`;
+						touchIndicator.style.top = `${mouseY}px`;
 
-					// Update last position
-					lastMouseX = event.clientX;
-					lastMouseY = event.clientY;
+						const currentTime = Date.now();
+						const deltaTime = currentTime - swipeStartTime;
+						const deltaX = mouseX - lastMouseX;
+						const deltaY = mouseY - lastMouseY;
+						const totalDeltaX = mouseX - startMouseX;
+						const totalDeltaY = mouseY - startMouseY;
+
+						// Calculate velocity of movement
+						const velocity =
+							Math.sqrt(deltaX * deltaX + deltaY * deltaY) /
+							deltaTime;
+
+						// Check if movement qualifies as a swipe
+						if (
+							Math.abs(totalDeltaX) > SWIPE_THRESHOLD ||
+							Math.abs(totalDeltaY) > SWIPE_THRESHOLD ||
+							velocity > SWIPE_VELOCITY_THRESHOLD
+						) {
+							hasMovedSignificantly = true;
+						}
+
+						// Update last position
+						lastMouseX = mouseX;
+						lastMouseY = mouseY;
+					}
 				}
 
 				function handleMouseUp(event) {

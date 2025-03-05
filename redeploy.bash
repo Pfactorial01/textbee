@@ -20,14 +20,14 @@ sudo docker run -d --name api_cont \
   api
 
 
-# Stop and remove existing container
-sudo docker stop new_portal_cont || true
-sudo docker rm new_portal_cont || true
+# # Stop and remove existing container
+# sudo docker stop new_portal_cont || true
+# sudo docker rm new_portal_cont || true
 
-# Remove existing image
-sudo docker rmi new_portal || true
+# # Remove existing image
+# sudo docker rmi new_portal || true
 
-# Build new image
-sudo docker build -t new_portal new_portal/.
+# # Build new image
+# sudo docker build -t new_portal new_portal/.
 
-sudo docker run -d --name new_portal_cont -v /home/local/textbee/new_portal:/code1 -p 8000:8000 new_portal
+# sudo docker run -d --name new_portal_cont -v /home/local/textbee/new_portal:/code1 -p 8000:8000 new_portal

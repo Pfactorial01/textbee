@@ -7,13 +7,28 @@
 					class="card-header d-flex justify-content-between align-items-center"
 				>
 					<h5 class="mb-0">Web Scraper</h5>
-					<button
-						class="btn btn-outline-secondary btn-sm"
-						id="clearButton"
-						type="button"
-					>
-						<i class="bi bi-trash"></i> Clear Results
-					</button>
+					<div class="btn-group">
+						<button
+							class="btn btn-outline-secondary btn-sm"
+							id="clearButton"
+							type="button"
+						>
+							<i class="bi bi-trash"></i> Clear Results
+						</button>
+						<button
+							class="btn btn-outline-primary btn-sm"
+							id="restartNetworkButton"
+							type="button"
+						>
+							<span class="button-content">
+								<i class="bi bi-arrow-clockwise"></i> Restart Device Network
+							</span>
+							<span class="spinner d-none">
+								<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+								<span class="ms-1">Restarting...</span>
+							</span>
+						</button>
+					</div>
 				</div>
 				<div class="card-body">
 					<form id="scraperForm" class="mb-4">
@@ -268,7 +283,6 @@
 					`);
 					newTab.document.close();
 				} else {
-					console.log("here")
 					// Show button to open the new tab manually
 					document.getElementById("manualOpenTab").classList.remove("d-none");
 					document.getElementById("openTabButton").onclick = function () {
@@ -325,6 +339,67 @@
 				console.error("Failed to copy:", err);
 			}
 		});
+
+		// Add restart network functionality
+		const restartNetworkButton = document.getElementById("restartNetworkButton");
+		const buttonContent = restartNetworkButton.querySelector(".button-content");
+		const spinner = restartNetworkButton.querySelector(".spinner");
+		const successToast = document.getElementById("successToast");
+		const toast = new bootstrap.Toast(successToast, { delay: 3000 });
+
+		restartNetworkButton.addEventListener("click", async function() {
+			// Show spinner and disable button
+			buttonContent.classList.add("d-none");
+			spinner.classList.remove("d-none");
+			restartNetworkButton.disabled = true;
+
+			try {
+				const deviceId = localStorage.getItem("selectedDeviceId");
+				const response = await fetch(
+					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/restart-mobile-data`,
+					{
+						method: "GET",
+						headers: {
+							Authorization: `Bearer ${
+								document.cookie
+									.split("; ")
+									.find((row) => row.startsWith("client_access_token="))
+									?.split("=")[1]
+							}`,
+						},
+					}
+				);
+
+				if (!response.ok) {
+					throw new Error("Failed to restart device network");
+				}
+
+				// Show success toast
+				toast.show();
+
+			} catch (error) {
+				console.error("Error:", error);
+				errorAlert.textContent = error.message;
+				errorAlert.classList.remove("d-none");
+			} finally {
+				// Restore button state
+				buttonContent.classList.remove("d-none");
+				spinner.classList.add("d-none");
+				restartNetworkButton.disabled = false;
+			}
+		});
 	});
 </script>
+
+<!-- Add this toast element at the bottom of the container div -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+	<div id="successToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+		<div class="d-flex">
+			<div class="toast-body">
+				Device network restarted successfully!
+			</div>
+			<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+		</div>
+	</div>
+</div>
 {% endblock %}

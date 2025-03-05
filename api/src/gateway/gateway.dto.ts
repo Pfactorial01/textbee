@@ -106,7 +106,13 @@ export class SMSData {
   // })
   receivers: string[]
 }
-export class SendSMSInputDTO extends SMSData {}
+export class SendSMSInputDTO extends SMSData {
+  @ApiProperty({ type: String })
+  mediaUrl?: string
+
+  @ApiProperty({ type: String })
+  mediaType?: string
+}
 
 export class SendBulkSMSInputDTO {
   @ApiProperty({

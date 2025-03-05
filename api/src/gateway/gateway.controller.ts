@@ -11,6 +11,9 @@ import {
   HttpCode,
   HttpStatus,
   HttpException,
+  Res,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common'
 import {
   ApiBearerAuth,
@@ -32,6 +35,11 @@ import { GatewayService } from './gateway.service'
 import { CanModifyDevice } from './guards/can-modify-device.guard'
 import { Log } from './schemas/log.schema'
 import { ScrcpyGateway } from './scrcpy.gateway'
+import { Response } from 'express'
+import * as path from 'path'
+import * as fs from 'fs'
+import { FileInterceptor } from '@nestjs/platform-express'
+import { diskStorage } from 'multer'
 
 export class AdbShellInputDTO {
   @ApiProperty()
@@ -107,21 +115,69 @@ export class GatewayController {
   }
 
   @ApiOperation({ summary: 'Send SMS to a device' })
-  @UseGuards(AuthGuard, CanModifyDevice)
-  // deprecate sendSMS route in favor of send-sms, but allow both to prevent breaking changes
-  @Post(['/devices/:id/sendSMS', '/devices/:id/send-sms'])
+  @UseGuards(AuthGuard)
+  @Post('/devices/:id/send-sms')
+  @UseInterceptors(
+    FileInterceptor('media', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9)
+          cb(null, uniqueSuffix + path.extname(file.originalname))
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        const allowedMimes = [
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'video/3gp',
+          'video/mp4',
+        ]
+        if (allowedMimes.includes(file.mimetype)) {
+          cb(null, true)
+        } else {
+          cb(new Error('Invalid file type'), false)
+        }
+      },
+      limits: {
+        fileSize: 2048576, // 1MB
+      },
+    }),
+  )
   async sendSMS(
     @Param('id') deviceId: string,
     @Body() smsData: SendSMSInputDTO,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    const recipents = smsData.recipients || smsData.receivers
-    const newRecipents = recipents.map((recipient) =>
-      recipient.replace(/-/g, ''),
-    )
-    smsData.recipients = newRecipents
-    smsData.receivers = newRecipents
-    const data = await this.gatewayService.sendSMS(deviceId, smsData)
-    return { data }
+    // If mediaUrl is provided in the request body, use it directly
+    if (smsData.mediaUrl) {
+      // Validate URL format if needed
+      try {
+        new URL(smsData.mediaUrl)
+      } catch (e) {
+        throw new HttpException('Invalid media URL', HttpStatus.BAD_REQUEST)
+      }
+      // Set mediaType based on URL extension or default to image/jpeg
+      const extension = path.extname(smsData.mediaUrl).toLowerCase()
+      const mimeTypes = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.3gp': 'video/3gp',
+        '.mp4': 'video/mp4',
+      }
+      smsData.mediaType = mimeTypes[extension] || 'image/jpeg'
+    }
+    // If file is uploaded, use the file
+    else if (file) {
+      const mediaUrl = `http://100.77.145.14:3005/api/v1/gateway/media/${file.filename}`
+      smsData.mediaUrl = mediaUrl
+      smsData.mediaType = file.mimetype
+    }
+    return this.gatewayService.sendSMS(deviceId, smsData)
   }
 
   @ApiOperation({ summary: 'Send Bulk SMS' })
@@ -330,5 +386,23 @@ export class GatewayController {
     const data =
       await this.gatewayService.scrapeWebsiteThroughDeviceProxy(input)
     return { data }
+  }
+
+  @Get('media/:filename')
+  async serveMedia(@Param('filename') filename: string, @Res() res: Response) {
+    const filePath = path.join(__dirname, '../../uploads', filename)
+
+    if (!fs.existsSync(filePath)) {
+      throw new HttpException('File not found', HttpStatus.NOT_FOUND)
+    }
+
+    return res.sendFile(filePath)
+  }
+  @ApiOperation({ summary: 'Restart device mobile data' })
+  @ApiResponse({ status: 200 })
+  @Get(['/devices/:id/restart-mobile-data'])
+  async restartNetwork(@Param('id') deviceId: string) {
+    await this.gatewayService.restartDeviceNetwork(deviceId)
+    return
   }
 }

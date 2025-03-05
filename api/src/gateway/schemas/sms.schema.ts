@@ -62,6 +62,12 @@ export class SMS {
 
   @Prop({ type: Boolean })
   read: Boolean
+
+  @Prop()
+  mediaUrl?: string
+
+  @Prop()
+  mediaType?: string
 }
 
 export const SMSSchema = SchemaFactory.createForClass(SMS)
