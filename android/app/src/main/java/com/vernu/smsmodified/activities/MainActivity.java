@@ -3,10 +3,13 @@ package com.vernu.smsmodified.activities;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+
+import android.Manifest;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -45,6 +48,7 @@ import com.vernu.smsmodified.services.NetworkUtils;
 import android.os.Handler;
 import android.os.HandlerThread;
 
+import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.work.Data;
 import androidx.work.OneTimeWorkRequest;

@@ -28,7 +28,7 @@ android {
 //                arguments["room.schemaLocation"] = "$projectDir/schemas"
 //            }
 //        }
-}
+    }
 
     chaquopy {
         defaultConfig {
@@ -51,6 +51,7 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+    namespace 'com.vernu.smsmodified'
 }
 
 dependencies {
