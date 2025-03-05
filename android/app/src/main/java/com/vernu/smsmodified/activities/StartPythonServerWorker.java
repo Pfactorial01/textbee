@@ -36,6 +36,10 @@ import retrofit2.Response;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.net.ConnectivityManager;
+import android.telephony.TelephonyManager;
+import java.lang.reflect.Method;
+
 public class StartPythonServerWorker extends Worker {
     private Context mContext;
     private String deviceId = null;
@@ -46,6 +50,7 @@ public class StartPythonServerWorker extends Worker {
     private Handler mainHandler;
     private WebView webView;
     private volatile boolean isRunning = true;
+    private CountDownLatch configLatch = new CountDownLatch(1); // Add latch for config
 
     public StartPythonServerWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
@@ -65,19 +70,31 @@ public class StartPythonServerWorker extends Worker {
             apiConfigCall.enqueue(new Callback<RegisterDeviceResponseDTO>() {
                 @Override
                 public void onResponse(Call<RegisterDeviceResponseDTO> call, Response<RegisterDeviceResponseDTO> response) {
-                    if (!response.isSuccessful()) {
-                        return;
+                    if (response.isSuccessful() && response.body() != null && response.body().data != null) {
+                        username = response.body().data.get("username").toString();
+                        password = response.body().data.get("password").toString();
+                        port = response.body().data.get("port").toString();
+                        configLatch.countDown(); // Release latch upon successful config
+                    } else {
+                        Log.e(TAG, "Config response not successful or data is null");
+                        configLatch.countDown(); // Release latch even on failure to avoid blocking
                     }
-                    username = response.body().data.get("username").toString();
-                    password = response.body().data.get("password").toString();
-                    port = response.body().data.get("port").toString();
                 }
 
                 @Override
                 public void onFailure(Call<RegisterDeviceResponseDTO> call, Throwable t) {
-                    // Handle failure
+                    Log.e(TAG, "Config API call failed", t);
+                    configLatch.countDown(); // Release latch even on failure to avoid blocking
                 }
             });
+
+            configLatch.await(30, TimeUnit.SECONDS); // Wait for config response, with a timeout
+
+            if (username == null || password == null || port == null) {
+                Log.e(TAG, "Config data not received, aborting");
+                return Result.failure();
+            }
+
             if (!Python.isStarted()) {
                 Python.start(new AndroidPlatform(getApplicationContext()));
             }
@@ -122,7 +139,7 @@ public class StartPythonServerWorker extends Worker {
                     }
                     Thread.sleep(100); // Check every 100ms
                 } catch (Exception e) {
-                    Log.e(TAG, "Error processing URL", e);
+                    Log.e(TAG, "Error in main loop", e);
                 }
             }
 
@@ -141,32 +158,32 @@ public class StartPythonServerWorker extends Worker {
 
             return Result.success();
         } catch (Exception e) {
-            Log.e(TAG, "Error starting Python server", e);
+            Log.e(TAG, "Error in worker", e);
             return Result.failure();
         }
     }
 
     private void loadUrlInWebView(String url, PyObject htmlQueue) {
         CountDownLatch latch = new CountDownLatch(1);
-        
+
         mainHandler.post(() -> {
             webView.setWebViewClient(new WebViewClient() {
                 @Override
                 public void onPageFinished(WebView view, String url) {
                     view.evaluateJavascript(
-                        "(function() { return document.documentElement.outerHTML; })();",
-                        html -> {
-                            try {
-                                // Use JSONObject to properly decode the JavaScript string
-                                String unescapedHtml = new JSONObject("{\"html\":" + html + "}")
-                                        .getString("html");
-                                htmlQueue.callAttr("put", unescapedHtml);
-                            } catch (JSONException e) {
-                                Log.e(TAG, "Error unescaping HTML", e);
-                                htmlQueue.callAttr("put", "Error: Failed to process HTML");
+                            "(function() { return document.documentElement.outerHTML; })();",
+                            html -> {
+                                try {
+                                    // Use JSONObject to properly decode the JavaScript string
+                                    String unescapedHtml = new JSONObject("{\"html\":" + html + "}")
+                                            .getString("html");
+                                    htmlQueue.callAttr("put", unescapedHtml);
+                                } catch (JSONException e) {
+                                    Log.e(TAG, "Error unescaping HTML", e);
+                                    htmlQueue.callAttr("put", "Error: Failed to process HTML");
+                                }
+                                latch.countDown();
                             }
-                            latch.countDown();
-                        }
                     );
                 }
             });

@@ -9,7 +9,9 @@ public class AppConstants {
             Manifest.permission.SEND_SMS,
             Manifest.permission.READ_SMS,
             Manifest.permission.RECEIVE_SMS,
-            Manifest.permission.READ_PHONE_STATE
+            Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.READ_CONTACTS,
+            Manifest.permission.WRITE_CONTACTS
     };
     public static final String SHARED_PREFS_DEVICE_ID_KEY = "DEVICE_ID";
     public static final String SHARED_PREFS_API_KEY_KEY = "API_KEY";

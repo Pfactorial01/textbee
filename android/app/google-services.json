@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "949567178519",
+    "project_id": "textb-f526f",
+    "storage_bucket": "textb-f526f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:949567178519:android:8e68cf2770fd22785dd952",
+        "android_client_info": {
+          "package_name": "com.vernu.smsmodified"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1084985676688-81vdbhu204gfh304g97erimdi0dsrt3a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCbnyu47vpDJw0cfR2hxWZfHfq9Ok8Kd-I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1084985676688-81vdbhu204gfh304g97erimdi0dsrt3a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

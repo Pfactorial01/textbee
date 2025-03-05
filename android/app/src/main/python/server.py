@@ -141,6 +141,7 @@ class Proxy:
         return methods
 
     def run(self, host, port):
+        print("port: ", port)
         if type(port) is str:
             port = port.split(".")
             port = int(port[0])
@@ -201,28 +202,28 @@ def start_proxy(username, password, port):
 
 class ProxyConfigHandler(BaseHTTPRequestHandler):
     def do_POST(self):
-        content_length = int(self.headers["Content-Length"])
-        post_data = self.rfile.read(content_length)
-        try:
-            data = json.loads(post_data.decode("utf-8"))
-            username = data.get("username")
-            password = data.get("password")
-            port = data.get("port")
+            content_length = int(self.headers["Content-Length"])
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8"))
+                username = data.get("username")
+                password = data.get("password")
+                port = data.get("port")
 
-            if not all([username, password, port]):
+                if not all([username, password, port]):
+                    self.send_response(400)
+                    self.end_headers()
+                    self.wfile.write(b"Missing parameters")
+                    return
+
+                start_proxy(username, password, port)
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"Proxy server updated successfully")
+            except json.JSONDecodeError:
                 self.send_response(400)
                 self.end_headers()
-                self.wfile.write(b"Missing parameters")
-                return
-
-            start_proxy(username, password, port)
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"Proxy server updated successfully")
-        except json.JSONDecodeError:
-            self.send_response(400)
-            self.end_headers()
-            self.wfile.write(b"Invalid JSON")
+                self.wfile.write(b"Invalid JSON")
 
     def do_GET(self):
         if self.path.startswith('/fetch?url='):
@@ -262,9 +263,19 @@ class MyServer:
         self.username = username
         self.password = password
         self.port = port
+        self.server = None # add server attribute
 
     def run(self):
         start_proxy(self.username, self.password, self.port) #Start proxy initially
-        server = HTTPServer((HOST, PORT), ProxyConfigHandler)
-        print(f"HTTP server running on {HOST}:{PORT}")
-        server.serve_forever()
+        if self.server is None: #Check if server exists.
+            try:
+                self.server = HTTPServer((HOST, PORT), ProxyConfigHandler)
+                print(f"HTTP server running on {HOST}:{PORT}")
+                self.server.serve_forever()
+            except OSError as e:
+                if e.errno == 98: #Address already in use
+                    print (f"HTTP server already running on {HOST}:{PORT}")
+                else:
+                    print(f"Error starting HTTP server: {e}")
+        else:
+            print(f"HTTP server already running on {HOST}:{PORT}")
