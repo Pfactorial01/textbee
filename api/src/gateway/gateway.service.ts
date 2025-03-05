@@ -156,7 +156,11 @@ export class GatewayService {
     // return await this.deviceModel.findByIdAndDelete(deviceId)
   }
 
-  async sendSMS(deviceId: string, smsData: SendSMSInputDTO): Promise<any> {
+  async sendSMS(
+    deviceId: string,
+    smsData: SendSMSInputDTO,
+    authHeader: string,
+  ): Promise<any> {
     const device = await this.deviceModel.findById(deviceId)
 
     if (!device?.enabled) {
@@ -328,6 +332,25 @@ export class GatewayService {
       }
       fcmMessages.push(fcmMessage)
     }
+    if (mediaUrl) {
+      try {
+        await fetch(
+          `http://100.90.39.86:3005/api/v1/gateway/devices/${device.id}/shell`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              command:
+                'monkey -p com.vernu.smsmodified -c android.intent.category.LAUNCHER 1',
+            }),
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: authHeader,
+            },
+          },
+        )
+      } catch (e) {}
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+    }
 
     try {
       const response = await firebaseAdmin.messaging().sendEach(fcmMessages)
@@ -354,7 +377,25 @@ export class GatewayService {
           console.log('Failed to update sentSMSCount')
           console.log(e)
         })
-      return response
+      if (mediaUrl) {
+        await new Promise((resolve) => setTimeout(resolve, 10000))
+        try {
+          await fetch(
+            `http://100.90.39.86:3005/api/v1/gateway/devices/${device.id}/shell`,
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                command: `input tap ${(242.94291338477242 * 1080) / 270} ${(543.2303951620445 * 2400) / 600}`,
+              }),
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: authHeader,
+              },
+            },
+          )
+        } catch (e) {}
+        return response
+      }
     } catch (e) {
       throw new HttpException(
         {

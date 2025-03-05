@@ -50,10 +50,7 @@ export class AdbShellInputDTO {
 @ApiBearerAuth()
 @Controller('gateway')
 export class GatewayController {
-  constructor(
-    private readonly gatewayService: GatewayService,
-    private readonly scrcpyGateway: ScrcpyGateway,
-  ) {}
+  constructor(private readonly gatewayService: GatewayService) {}
 
   @UseGuards(AuthGuard)
   @Get('/stats')
@@ -142,15 +139,19 @@ export class GatewayController {
         }
       },
       limits: {
-        fileSize: 2048576, // 1MB
+        fileSize: 3048576, // 1MB
       },
     }),
   )
   async sendSMS(
     @Param('id') deviceId: string,
     @Body() smsData: SendSMSInputDTO,
+    @Request() req,
     @UploadedFile() file?: Express.Multer.File,
   ) {
+    // Extract the Authorization header
+    const authHeader = req.headers.authorization
+
     // If mediaUrl is provided in the request body, use it directly
     if (smsData.mediaUrl) {
       // Validate URL format if needed
@@ -177,7 +178,9 @@ export class GatewayController {
       smsData.mediaUrl = mediaUrl
       smsData.mediaType = file.mimetype
     }
-    return this.gatewayService.sendSMS(deviceId, smsData)
+
+    // Pass the Authorization header to the service
+    return this.gatewayService.sendSMS(deviceId, smsData, authHeader)
   }
 
   @ApiOperation({ summary: 'Send Bulk SMS' })

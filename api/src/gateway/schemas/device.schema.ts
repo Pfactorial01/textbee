@@ -79,6 +79,9 @@ export class Device {
 
   @Prop({ type: Number })
   adbPort: number
+
+  @Prop({ type: String })
+  adbId: string
 }
 
 export const DeviceSchema = SchemaFactory.createForClass(Device)

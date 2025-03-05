@@ -54,7 +54,7 @@
 					></div>
 
 					<!-- ADB Shell section (shown when adbPort exists) -->
-					<div id="adbShellSection" class="d-none">
+					<div id="adbShellSection">
 						<div class="mb-3">
 							<label class="form-label">Shell</label>
 							<div class="input-group">
@@ -99,45 +99,6 @@
 							/>
 						</div>
 					</div>
-
-					<!-- ADB Setup form (shown when adbPort doesn't exist) -->
-					<form id="adbPairForm" class="d-none">
-						<div class="mb-3">
-							<label for="adbPort" class="form-label"
-								>Wireless ADB Port</label
-							>
-							<input
-								type="text"
-								class="form-control bg-light"
-								id="adbPort"
-							/>
-						</div>
-						<div class="mb-3">
-							<label for="pairingPort" class="form-label"
-								>Pairing Port</label
-							>
-							<input
-								type="text"
-								class="form-control bg-light"
-								id="pairingPort"
-							/>
-						</div>
-						<div class="mb-3">
-							<label for="pairingCode" class="form-label"
-								>Pairing Code</label
-							>
-							<input
-								type="text"
-								class="form-control bg-light"
-								id="pairingCode"
-							/>
-						</div>
-						<div class="d-flex justify-content-end">
-							<button type="submit" class="btn btn-primary">
-								Connect
-							</button>
-						</div>
-					</form>
 				</div>
 			</div>
 		</div>
@@ -152,135 +113,8 @@
 		const form = document.getElementById("adbPairForm");
 		const loadingSpinner = document.getElementById("settingsLoading");
 		const errorAlert = document.getElementById("adbError");
-		// Show loading spinner
-		document.getElementById("settingsLoading").classList.remove("d-none");
-
 		// Fetch device data
 		const deviceId = localStorage.getItem("selectedDeviceId");
-		fetch(
-			`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/connect-adb`,
-			{
-				headers: {
-					Authorization: `Bearer ${
-						document.cookie
-							.split("; ")
-							.find((row) =>
-								row.startsWith("client_access_token=")
-							)
-							?.split("=")[1]
-					}`,
-				},
-			}
-		)
-			.then((response) => response.json())
-			.then((deviceData) => {
-				document
-					.getElementById("settingsLoading")
-					.classList.add("d-none");
-				if (deviceData?.ip) {
-					// Show shell section
-					document
-						.getElementById("adbShellSection")
-						.classList.remove("d-none");
-					// Set the adb connect command
-					document.getElementById(
-						"adbConnectCommand"
-					).value = `adb connect ${deviceData.ip}:${deviceData.adbPort}`;
-
-					// Start mirroring immediately after successful ADB connection
-					startMirroring();
-				} else {
-					document
-						.getElementById("adbPairForm")
-						.classList.remove("d-none");
-				}
-			})
-			.catch((error) => {
-				console.error("Error fetching device data:", error); // Log the full error object
-				const errorDiv = document.getElementById("adbError");
-				errorDiv.textContent =
-					"Failed to load device settings: " + error.message;
-				errorDiv.classList.remove("d-none");
-				document
-					.getElementById("adbPairForm")
-					.classList.remove("d-none");
-			});
-
-		// Handle form submission
-		form.addEventListener("submit", async function (e) {
-			e.preventDefault();
-
-			const submitButton = this.querySelector('button[type="submit"]');
-			const originalButtonText = submitButton.innerHTML;
-
-			// Disable form while submitting
-			submitButton.disabled = true;
-			submitButton.innerHTML = `
-				<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-				Saving...
-			`;
-
-			// Hide any previous error
-			errorAlert.classList.add("d-none");
-
-			const formData = {
-				adbPort: document.getElementById("adbPort").value,
-				pairingCode: document.getElementById("pairingCode").value,
-				pairingPort: document.getElementById("pairingPort").value,
-			};
-			try {
-				const response = await fetch(
-					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/pair-adb`,
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${
-								document.cookie
-									.split("; ")
-									.find((row) =>
-										row.startsWith("client_access_token=")
-									)
-									?.split("=")[1]
-							}`,
-						},
-						body: JSON.stringify(formData),
-					}
-				);
-
-				if (!response.ok)
-					throw new Error("Failed to update device settings");
-
-				// Show success message
-				const successAlert = document.createElement("div");
-				successAlert.className = "alert alert-success";
-				successAlert.role = "alert";
-				successAlert.textContent = "ADB connected succesfully!";
-
-				// Insert success message before the form
-				form.parentNode.insertBefore(successAlert, form);
-
-				// Remove success message after 3 seconds
-				setTimeout(() => {
-					successAlert.remove();
-				}, 3000);
-				document.getElementById("adbPairForm").classList.add("d-none");
-				document
-					.getElementById("adbShellSection")
-					.classList.remove("d-none");
-				// Start mirroring immediately after successful ADB connection
-				startMirroring();
-			} catch (error) {
-				console.error("Error connecting to ADB:", error);
-				errorAlert.textContent = `Error connecting to device ADB`;
-				errorAlert.classList.remove("d-none");
-			} finally {
-				// Re-enable form
-				submitButton.disabled = false;
-				submitButton.innerHTML = originalButtonText;
-			}
-		});
-
 		// Handle shell command execution
 		document
 			.getElementById("executeCommand")
@@ -303,7 +137,7 @@
 				errorDiv.classList.add("d-none");
 
 				fetch(
-					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/shell`,
+					`http://100.90.39.86:3005/api/v1/gateway/devices/${deviceId}/shell`,
 					{
 						method: "POST",
 						headers: {
@@ -342,7 +176,7 @@
 						spinner.classList.add("d-none");
 					});
 			});
-
+		startMirroring();
 		// Screen Mirroring Implementation
 		const startMirrorBtn = document.getElementById("startMirror");
 		const stopMirrorBtn = document.getElementById("stopMirror");
@@ -372,6 +206,12 @@
 		const SWIPE_TIME_THRESHOLD = 300; // ms; maximum time for a click vs swipe detection
 		const SWIPE_VELOCITY_THRESHOLD = 0.2; // pixels/ms; minimum velocity to qualify as a swipe
 
+		// Add these constants at the top with other constants
+		const LONG_PRESS_THRESHOLD = 500; // ms; time to trigger long press
+		const LONG_PRESS_DURATION = 3000; // 1 second duration for long press
+		let longPressTimer = null; // Timer for long press detection
+		let hasTriggeredLongPress = false; // Flag to prevent multiple triggers
+
 		// Create a visual indicator for touch
 		const touchIndicator = document.createElement("div");
 		touchIndicator.style.position = "fixed";
@@ -385,12 +225,299 @@
 		touchIndicator.style.zIndex = "1000";
 		document.body.appendChild(touchIndicator);
 
+		// Move deviceId to a higher scope
+		let currentDeviceId = null; // Add this with other global variables
+
+		// Add this with other variables at the top
+		let longPressStartTime = 0;
+
+		// Update handleMouseDown function
+		function handleMouseDown(event) {
+			if (!socket?.connected) return;
+			event.preventDefault();
+
+			const rect = video.getBoundingClientRect();
+			const mouseX = event.clientX;
+			const mouseY = event.clientY;
+
+			// Only show indicator if mouse is within video bounds
+			if (
+				mouseX >= rect.left &&
+				mouseX <= rect.right &&
+				mouseY >= rect.top &&
+				mouseY <= rect.bottom
+			) {
+				isMouseDown = true;
+				hasMovedSignificantly = false;
+				hasTriggeredLongPress = false;
+				startMouseX = mouseX;
+				startMouseY = mouseY;
+				lastMouseX = mouseX;
+				lastMouseY = mouseY;
+				swipeStartTime = Date.now();
+				longPressStartTime = Date.now(); // Store the start time
+
+				// Update touch indicator position
+				touchIndicator.style.left = `${mouseX}px`;
+				touchIndicator.style.top = `${mouseY}px`;
+				touchIndicator.style.display = "block";
+
+				// Change touch indicator color during long press timer
+				touchIndicator.style.backgroundColor =
+					"rgba(128, 128, 128, 0.5)";
+
+				// Start long press timer
+				longPressTimer = setTimeout(() => {
+					if (!hasMovedSignificantly && isMouseDown) {
+						hasTriggeredLongPress = true;
+						// Visual feedback for long press
+						touchIndicator.style.backgroundColor =
+							"rgba(255, 0, 0, 0.5)";
+
+						const rect = video.getBoundingClientRect();
+						const videoWidth = 270;
+						const videoHeight = 600;
+						const scale = Math.min(
+							rect.width / videoWidth,
+							rect.height / videoHeight
+						);
+						const scaledWidth = videoWidth * scale;
+						const scaledHeight = videoHeight * scale;
+						const offsetX = (rect.width - scaledWidth) / 2;
+						const offsetY = (rect.height - scaledHeight) / 2;
+
+						const adjustedX =
+							(startMouseX - rect.left - offsetX) / scale;
+						const adjustedY =
+							(startMouseY - rect.top - offsetY) / scale;
+
+						// Don't emit the event here - we'll emit it on mouse up
+						if (
+							adjustedX >= 0 &&
+							adjustedX <= videoWidth &&
+							adjustedY >= 0 &&
+							adjustedY <= videoHeight
+						) {
+							// Just store the coordinates for use in mouseup
+							longPressCoords = {
+								x: adjustedX,
+								y: adjustedY,
+							};
+						}
+					}
+				}, LONG_PRESS_THRESHOLD);
+			}
+		}
+
+		// Add this variable to store long press coordinates
+		let longPressCoords = null;
+
+		// ===== Helper Function =====
+
+		/**
+		 * handleTap
+		 * This function calculates the adjusted tap coordinates and emits a "touch" event.
+		 * It is called only if the interaction did not move significantly.
+		 *
+		 * @param {number} clientX - The client X coordinate of the tap.
+		 * @param {number} clientY - The client Y coordinate of the tap.
+		 */
+		function handleTap(clientX, clientY) {
+			const rect = video.getBoundingClientRect();
+			const videoWidth = 270; // Actual video content width
+			const videoHeight = 600; // Actual video content height
+
+			// Calculate scaling and centering offsets.
+			const scale = Math.min(
+				rect.width / videoWidth,
+				rect.height / videoHeight
+			);
+			const scaledWidth = videoWidth * scale;
+			const scaledHeight = videoHeight * scale;
+			const offsetX = (rect.width - scaledWidth) / 2;
+			const offsetY = (rect.height - scaledHeight) / 2;
+
+			// Adjust the coordinates from the event.
+			const adjustedX = (clientX - rect.left - offsetX) / scale;
+			const adjustedY = (clientY - rect.top - offsetY) / scale;
+
+			// Only emit if the tap is within the video content area.
+			if (
+				adjustedX >= 0 &&
+				adjustedX <= videoWidth &&
+				adjustedY >= 0 &&
+				adjustedY <= videoHeight
+			) {
+				socket.emit("input", {
+					deviceId: currentDeviceId,
+					type: "touch", // this indicates a tap/click
+					x: adjustedX,
+					y: adjustedY,
+				});
+			}
+		}
+
+		// ===== Mouse Event Handlers =====
+
+		function handleMouseMove(event) {
+			if (!socket?.connected || !isMouseDown) return;
+			event.preventDefault();
+
+			const rect = video.getBoundingClientRect();
+			const mouseX = event.clientX;
+			const mouseY = event.clientY;
+
+			// Only update indicator if mouse is within video bounds
+			if (
+				mouseX >= rect.left &&
+				mouseX <= rect.right &&
+				mouseY >= rect.top &&
+				mouseY <= rect.bottom
+			) {
+				// Update touch indicator position
+				touchIndicator.style.left = `${mouseX}px`;
+				touchIndicator.style.top = `${mouseY}px`;
+
+				const currentTime = Date.now();
+				const deltaTime = currentTime - swipeStartTime;
+				const deltaX = mouseX - lastMouseX;
+				const deltaY = mouseY - lastMouseY;
+				const totalDeltaX = mouseX - startMouseX;
+				const totalDeltaY = mouseY - startMouseY;
+
+				// Calculate velocity of movement
+				const velocity =
+					Math.sqrt(deltaX * deltaX + deltaY * deltaY) / deltaTime;
+
+				// Check if movement qualifies as a swipe
+				if (
+					Math.abs(totalDeltaX) > SWIPE_THRESHOLD ||
+					Math.abs(totalDeltaY) > SWIPE_THRESHOLD ||
+					velocity > SWIPE_VELOCITY_THRESHOLD
+				) {
+					hasMovedSignificantly = true;
+					// Clear long press timer if movement is detected
+					if (longPressTimer) {
+						clearTimeout(longPressTimer);
+						longPressTimer = null;
+					}
+				}
+
+				// Update last position
+				lastMouseX = mouseX;
+				lastMouseY = mouseY;
+			}
+		}
+
+		function handleMouseUp(event) {
+			if (!socket?.connected || !isMouseDown) return;
+			event.preventDefault();
+
+			// Clear long press timer
+			if (longPressTimer) {
+				clearTimeout(longPressTimer);
+				longPressTimer = null;
+			}
+
+			// Hide touch indicator
+			touchIndicator.style.display = "none";
+
+			const deltaTime = Date.now() - swipeStartTime;
+			const totalMoveX = Math.abs(event.clientX - startMouseX);
+			const totalMoveY = Math.abs(event.clientY - startMouseY);
+
+			// If this was a long press, emit the event now with the actual duration
+			if (hasTriggeredLongPress && longPressCoords) {
+				const actualDuration = Date.now() - longPressStartTime;
+				socket.emit("input", {
+					deviceId: currentDeviceId,
+					type: "longpress",
+					x: longPressCoords.x,
+					y: longPressCoords.y,
+					duration: actualDuration,
+				});
+				longPressCoords = null;
+			}
+			// Handle normal tap if conditions are met
+			else if (
+				!hasMovedSignificantly &&
+				!hasTriggeredLongPress &&
+				totalMoveX < MOUSE_CLICK_THRESHOLD &&
+				totalMoveY < MOUSE_CLICK_THRESHOLD &&
+				deltaTime < SWIPE_TIME_THRESHOLD
+			) {
+				handleTap(startMouseX, startMouseY);
+			}
+			// Handle swipe
+			else if (hasMovedSignificantly) {
+				// Capture and emit the full swipe only once
+				const rect = video.getBoundingClientRect();
+				const videoWidth = 270;
+				const videoHeight = 600;
+
+				// Calculate scaling and centering offsets
+				const scale = Math.min(
+					rect.width / videoWidth,
+					rect.height / videoHeight
+				);
+				const scaledWidth = videoWidth * scale;
+				const scaledHeight = videoHeight * scale;
+				const offsetX = (rect.width - scaledWidth) / 2;
+				const offsetY = (rect.height - scaledHeight) / 2;
+
+				// Calculate adjusted start and end coordinates
+				const adjustedStartX =
+					(startMouseX - rect.left - offsetX) / scale;
+				const adjustedStartY =
+					(startMouseY - rect.top - offsetY) / scale;
+				const adjustedEndX =
+					(event.clientX - rect.left - offsetX) / scale;
+				const adjustedEndY =
+					(event.clientY - rect.top - offsetY) / scale;
+
+				// Calculate total delta for the swipe
+				let totalDeltaX = adjustedEndX - adjustedStartX;
+				let totalDeltaY = adjustedEndY - adjustedStartY;
+
+				// Apply scroll speed reduction
+				const SCROLL_SPEED_REDUCTION = 0.5; // Reduce scroll speed by this factor (adjust as needed)
+				totalDeltaX *= SCROLL_SPEED_REDUCTION;
+				totalDeltaY *= SCROLL_SPEED_REDUCTION;
+
+				// Only emit if within video content area
+				if (
+					adjustedStartX >= 0 &&
+					adjustedStartX <= videoWidth &&
+					adjustedStartY >= 0 &&
+					adjustedStartY <= videoHeight &&
+					adjustedEndX >= 0 &&
+					adjustedEndX <= videoWidth &&
+					adjustedEndY >= 0 &&
+					adjustedEndY <= videoHeight
+				) {
+					socket.emit("input", {
+						deviceId: currentDeviceId,
+						type: "scroll",
+						x: adjustedStartX,
+						y: adjustedStartY,
+						dx: -totalDeltaX,
+						dy: -totalDeltaY,
+					});
+				}
+			}
+
+			// Reset state
+			isMouseDown = false;
+			hasMovedSignificantly = false;
+			hasTriggeredLongPress = false;
+		}
+
 		async function startMirroring() {
 			const deviceId = localStorage.getItem("selectedDeviceId");
 			try {
 				// Request to start mirroring
 				const response = await fetch(
-					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/mirror`,
+					`http://100.90.39.86:3005/api/v1/gateway/devices/${deviceId}/mirror`,
 					{
 						method: "POST",
 						headers: {
@@ -410,6 +537,9 @@
 				if (!data.success) {
 					throw new Error(data.error || "Failed to start mirroring");
 				}
+
+				// Store deviceId in the higher scope
+				currentDeviceId = data.deviceId;
 
 				// Show status
 				mirrorStatus.textContent = "Connecting to device...";
@@ -433,10 +563,6 @@
 				mediaSource = new MediaSource();
 				video.src = URL.createObjectURL(mediaSource);
 
-				console.log(
-					"Video element created and MediaSource initialized"
-				);
-
 				// Handle MediaSource open event
 				await new Promise((resolve, reject) => {
 					let timeoutId = setTimeout(() => {
@@ -448,9 +574,6 @@
 						() => {
 							clearTimeout(timeoutId);
 							try {
-								console.log(
-									"MediaSource opened, adding SourceBuffer"
-								);
 								sourceBuffer = mediaSource.addSourceBuffer(
 									'video/mp4; codecs="avc1.42E01E"'
 								);
@@ -458,10 +581,6 @@
 								sourceBuffer.addEventListener(
 									"updateend",
 									() => {
-										console.log(
-											"SourceBuffer updated, queue length:",
-											queue.length
-										);
 										processQueue();
 									}
 								);
@@ -489,7 +608,6 @@
 
 				socket.on("frame", (data) => {
 					try {
-						console.log("Received frame, size:", data.length);
 						appendToSourceBuffer(data);
 						mirrorStatus.classList.add("d-none");
 
@@ -583,173 +701,12 @@
 						adjustedY <= videoHeight
 					) {
 						socket.emit("input", {
-							deviceId: data.deviceId,
+							deviceId: currentDeviceId,
 							type: "touch", // this indicates a tap/click
 							x: adjustedX,
 							y: adjustedY,
 						});
 					}
-				}
-
-				// ===== Mouse Event Handlers =====
-
-				function handleMouseDown(event) {
-					if (!socket?.connected) return;
-					event.preventDefault();
-
-					const rect = video.getBoundingClientRect();
-					const mouseX = event.clientX;
-					const mouseY = event.clientY;
-
-					// Only show indicator if mouse is within video bounds
-					if (
-						mouseX >= rect.left &&
-						mouseX <= rect.right &&
-						mouseY >= rect.top &&
-						mouseY <= rect.bottom
-					) {
-						isMouseDown = true;
-						hasMovedSignificantly = false;
-						startMouseX = mouseX;
-						startMouseY = mouseY;
-						lastMouseX = mouseX;
-						lastMouseY = mouseY;
-						swipeStartTime = Date.now();
-
-						// Update touch indicator position
-						touchIndicator.style.left = `${mouseX}px`;
-						touchIndicator.style.top = `${mouseY}px`;
-						touchIndicator.style.display = "block";
-					}
-				}
-
-				function handleMouseMove(event) {
-					if (!socket?.connected || !isMouseDown) return;
-					event.preventDefault();
-
-					const rect = video.getBoundingClientRect();
-					const mouseX = event.clientX;
-					const mouseY = event.clientY;
-
-					// Only update indicator if mouse is within video bounds
-					if (
-						mouseX >= rect.left &&
-						mouseX <= rect.right &&
-						mouseY >= rect.top &&
-						mouseY <= rect.bottom
-					) {
-						// Update touch indicator position
-						touchIndicator.style.left = `${mouseX}px`;
-						touchIndicator.style.top = `${mouseY}px`;
-
-						const currentTime = Date.now();
-						const deltaTime = currentTime - swipeStartTime;
-						const deltaX = mouseX - lastMouseX;
-						const deltaY = mouseY - lastMouseY;
-						const totalDeltaX = mouseX - startMouseX;
-						const totalDeltaY = mouseY - startMouseY;
-
-						// Calculate velocity of movement
-						const velocity =
-							Math.sqrt(deltaX * deltaX + deltaY * deltaY) /
-							deltaTime;
-
-						// Check if movement qualifies as a swipe
-						if (
-							Math.abs(totalDeltaX) > SWIPE_THRESHOLD ||
-							Math.abs(totalDeltaY) > SWIPE_THRESHOLD ||
-							velocity > SWIPE_VELOCITY_THRESHOLD
-						) {
-							hasMovedSignificantly = true;
-						}
-
-						// Update last position
-						lastMouseX = mouseX;
-						lastMouseY = mouseY;
-					}
-				}
-
-				function handleMouseUp(event) {
-					if (!socket?.connected || !isMouseDown) return;
-					event.preventDefault();
-
-					// Hide touch indicator
-					touchIndicator.style.display = "none";
-
-					const deltaTime = Date.now() - swipeStartTime;
-					const totalMoveX = Math.abs(event.clientX - startMouseX);
-					const totalMoveY = Math.abs(event.clientY - startMouseY);
-
-					// Only trigger click if:
-					// 1. Movement was minimal
-					// 2. Duration was short
-					// 3. No significant movement occurred during the interaction
-					if (
-						!hasMovedSignificantly &&
-						totalMoveX < MOUSE_CLICK_THRESHOLD &&
-						totalMoveY < MOUSE_CLICK_THRESHOLD &&
-						deltaTime < SWIPE_TIME_THRESHOLD
-					) {
-						handleTap(startMouseX, startMouseY); // Use start position for more accurate taps
-					} else if (hasMovedSignificantly) {
-						// Capture and emit the full swipe only once
-						const rect = video.getBoundingClientRect();
-						const videoWidth = 270;
-						const videoHeight = 600;
-
-						// Calculate scaling and centering offsets
-						const scale = Math.min(
-							rect.width / videoWidth,
-							rect.height / videoHeight
-						);
-						const scaledWidth = videoWidth * scale;
-						const scaledHeight = videoHeight * scale;
-						const offsetX = (rect.width - scaledWidth) / 2;
-						const offsetY = (rect.height - scaledHeight) / 2;
-
-						// Calculate adjusted start and end coordinates
-						const adjustedStartX =
-							(startMouseX - rect.left - offsetX) / scale;
-						const adjustedStartY =
-							(startMouseY - rect.top - offsetY) / scale;
-						const adjustedEndX =
-							(event.clientX - rect.left - offsetX) / scale;
-						const adjustedEndY =
-							(event.clientY - rect.top - offsetY) / scale;
-
-						// Calculate total delta for the swipe
-						let totalDeltaX = adjustedEndX - adjustedStartX;
-						let totalDeltaY = adjustedEndY - adjustedStartY;
-
-						// Apply scroll speed reduction
-						totalDeltaX *= SCROLL_SPEED_REDUCTION;
-						totalDeltaY *= SCROLL_SPEED_REDUCTION;
-
-						// Only emit if within video content area
-						if (
-							adjustedStartX >= 0 &&
-							adjustedStartX <= videoWidth &&
-							adjustedStartY >= 0 &&
-							adjustedStartY <= videoHeight &&
-							adjustedEndX >= 0 &&
-							adjustedEndX <= videoWidth &&
-							adjustedEndY >= 0 &&
-							adjustedEndY <= videoHeight
-						) {
-							socket.emit("input", {
-								deviceId: data.deviceId,
-								type: "scroll",
-								x: adjustedStartX,
-								y: adjustedStartY,
-								dx: -totalDeltaX, // Invert delta for natural scrolling
-								dy: -totalDeltaY,
-							});
-						}
-					}
-
-					// Reset state
-					isMouseDown = false;
-					hasMovedSignificantly = false;
 				}
 			} catch (error) {
 				console.error("Mirroring error:", error);

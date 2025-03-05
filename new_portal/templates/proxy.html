@@ -138,7 +138,7 @@
 				document.getElementById("proxyPort").value =
 					device.proxyPort || 0;
 				document.getElementById("exampleRequest").value =
-					`curl --proxy SOCKS5://${device.proxyUsername}:${device.proxyPassword}@${device.ip}:${device.proxyPort} httpbin.org/ip` ||
+					`curl --proxy SOCKS5://${device.proxyUsername}:${device.proxyPassword}@${device.ip}:${device.proxyPort} https://ipchicken.com` ||
 					"";
 				// Show form
 				form.classList.remove("d-none");

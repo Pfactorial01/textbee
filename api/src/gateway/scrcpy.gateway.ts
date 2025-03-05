@@ -76,11 +76,12 @@ export class ScrcpyGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody()
     data: {
       deviceId: string
-      type: 'touch' | 'scroll'
+      type: 'touch' | 'scroll' | 'longpress'
       x: number
       y: number
       dy?: number // For vertical scroll
       dx?: number // For horizontal scroll
+      duration?: number // For long press
     },
     @ConnectedSocket() client: Socket,
   ) {
@@ -99,6 +100,15 @@ export class ScrcpyGateway implements OnGatewayConnection, OnGatewayDisconnect {
           `adb -s ${data.deviceId} shell input tap ${deviceX} ${deviceY}`,
         )
         this.logger.log(`Touch event at ${deviceX},${deviceY}`)
+      } else if (data.type === 'longpress') {
+        // Use swipe command with same start and end coordinates for long press
+        const duration = data.duration || 1000 // Default to 1 second if duration not provided
+        await execAsync(
+          `adb -s ${data.deviceId} shell input swipe ${deviceX} ${deviceY} ${deviceX} ${deviceY} ${duration}`,
+        )
+        this.logger.log(
+          `Long press event at ${deviceX},${deviceY} for ${duration}ms`,
+        )
       } else if (data.type === 'scroll') {
         // Calculate scroll amounts
         const scrollY = Math.round((data.dy || 0) * (2400 / 600))

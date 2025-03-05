@@ -60,6 +60,9 @@ export class RegisterDeviceInputDTO {
 
   @ApiProperty({ type: Number })
   assistantReplyDelay?: Number
+
+  @ApiProperty({ type: String })
+  adbId?: String
 }
 
 export class SMSData {

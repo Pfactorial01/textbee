@@ -34,7 +34,7 @@
 					<form id="scraperForm" class="mb-4">
 						<div class="input-group">
 							<input
-								type="url"
+								type="text"
 								class="form-control"
 								id="urlInput"
 								placeholder="Enter website URL (e.g., https://www.example.com)"
@@ -356,7 +356,7 @@
 			try {
 				const deviceId = localStorage.getItem("selectedDeviceId");
 				const response = await fetch(
-					`http://100.77.145.14:3005/api/v1/gateway/devices/${deviceId}/restart-mobile-data`,
+					`http://100.90.39.86:3005/api/v1/gateway/devices/${deviceId}/restart-mobile-data`,
 					{
 						method: "GET",
 						headers: {
